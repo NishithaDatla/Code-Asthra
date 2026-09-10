@@ -9,6 +9,7 @@
  * - Load Distribution: Prefers distributing farmers away from congested slots/periods.
  * - Uses existing PostgreSQL schema fields (`slots`, `procurement_centres`, `queue_entries`).
  * - Deterministic, explainable scoring (No ML).
+ * - Decouples current live queue congestion from future date slot evaluations.
  */
 
 let capacityServiceModule = null;
@@ -62,7 +63,7 @@ export const RECOMMENDATION_STATUSES = {
  * @param {Object} slot - slots table record
  * @param {Object} capacityMetrics - Object from capacity.service.js
  * @param {Object} congestionMetrics - Object from congestion.service.js
- * @param {Object} [options={}] - Options (e.g. requestedQuantityQuintals)
+ * @param {Object} [options={}] - Options (e.g. requestedQuantityQuintals, nowDate, targetDate)
  * @returns {Object} Slot evaluation assessment
  */
 export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congestionMetrics = {}, options = {}) {
@@ -96,7 +97,12 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
       suitabilityScore: 0,
       recommendationStatus: RECOMMENDATION_STATUSES.UNAVAILABLE,
       recommendationTier: RECOMMENDATION_TIERS.NOT_RECOMMENDED,
-      reasons: [!isActive ? 'Slot is inactive.' : 'Slot has reached maximum farmer or crop quantity capacity.']
+      reasons: [!isActive ? 'Slot is inactive.' : 'Slot has reached maximum farmer or crop quantity capacity.'],
+      evidence: {
+        isAvailable: false,
+        isActive,
+        isFull
+      }
     };
   }
 
@@ -105,8 +111,13 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
   const activeCounters = capacityMetrics?.activeCounters ?? 0;
   const isFallbackProcessingTime = capacityMetrics?.isFallbackProcessingTime ?? true;
 
-  const congestionScore = congestionMetrics?.congestionScore ?? 0;
-  const congestionLevel = congestionMetrics?.congestionLevel || 'LOW';
+  // Determine if slot date is today vs future date
+  const nowTodayStr = options.nowDate || options.targetDate || new Date().toISOString().split('T')[0];
+  const slotDateStr = slot.slot_date ? String(slot.slot_date).split('T')[0] : nowTodayStr;
+  const isFutureDate = slotDateStr > nowTodayStr;
+
+  const liveCongestionScore = congestionMetrics?.congestionScore ?? 0;
+  const liveCongestionLevel = congestionMetrics?.congestionLevel || 'LOW';
 
   // Component Scores (0 - 100)
   // 1. Capacity Available Ratio (40% weight)
@@ -116,8 +127,20 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
   // 2. Counter Operating Score (30% weight)
   const counterScore = Math.round(counterOperatingRatio * 100);
 
-  // 3. Congestion Relief Score (30% weight): Inverse of queue congestion score
-  const congestionReliefScore = Math.max(0, 100 - congestionScore);
+  // 3. Load / Congestion Relief Score (30% weight)
+  let congestionReliefScore;
+  let congestionSignalMode;
+
+  if (isFutureDate) {
+    // For future dates, use candidate slot's actual farmer capacity headroom (exclude current live queue congestion)
+    const farmerHeadroomRatio = maxFarmers > 0 ? (remainingFarmerCapacity / maxFarmers) : 0;
+    congestionReliefScore = Math.round(farmerHeadroomRatio * 100);
+    congestionSignalMode = 'FUTURE_SLOT_BOOKED_LOAD';
+  } else {
+    // For today, use live instantaneous queue congestion score
+    congestionReliefScore = Math.max(0, 100 - liveCongestionScore);
+    congestionSignalMode = 'LIVE_OPERATIONAL_SIGNAL';
+  }
 
   // Weighted Total Suitability Score
   let suitabilityScore = Math.round(
@@ -130,21 +153,25 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
   let recommendationStatus = RECOMMENDATION_STATUSES.ACCEPTABLE;
   let recommendationTier = RECOMMENDATION_TIERS.MODERATE;
 
+  if (isFutureDate) {
+    reasons.push(`Future slot evaluated using booked capacity load (${bookedFarmers}/${maxFarmers} farmers registered; live queue congestion excluded).`);
+  }
+
   // Centre status penalty
   if (centreStatus !== 'OPEN' || activeCounters === 0) {
     suitabilityScore = Math.min(20, suitabilityScore);
     recommendationStatus = RECOMMENDATION_STATUSES.HIGH_RISK;
     recommendationTier = RECOMMENDATION_TIERS.DISCOURAGED;
     reasons.push(`Centre status is '${centreStatus}' with 0 active counters.`);
-  } else if (congestionLevel === 'CRITICAL' || congestionScore >= 75) {
+  } else if (!isFutureDate && (liveCongestionLevel === 'CRITICAL' || liveCongestionScore >= 75)) {
     suitabilityScore = Math.min(35, suitabilityScore);
     recommendationStatus = RECOMMENDATION_STATUSES.DISCOURAGED;
     recommendationTier = RECOMMENDATION_TIERS.HIGH_CONGESTION;
-    reasons.push(`High operational congestion at centre (${congestionScore}/100 score).`);
-  } else if (suitabilityScore >= 70 && congestionLevel === 'LOW') {
+    reasons.push(`High operational congestion at centre today (${liveCongestionScore}/100 score).`);
+  } else if (suitabilityScore >= 70 && (isFutureDate || liveCongestionLevel === 'LOW')) {
     recommendationStatus = RECOMMENDATION_STATUSES.RECOMMENDED;
     recommendationTier = RECOMMENDATION_TIERS.OPTIMAL;
-    reasons.push('Optimal slot: High capacity headroom and low queue congestion.');
+    reasons.push('Optimal slot: High capacity headroom and low booked load.');
   } else {
     reasons.push('Acceptable slot within standard operational capacity.');
   }
@@ -157,7 +184,7 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
 
   return {
     slotId: slot.id || null,
-    slotDate: slot.slot_date || null,
+    slotDate: slotDateStr,
     startTime: slot.start_time || null,
     endTime: slot.end_time || null,
     isAvailable: true,
@@ -170,9 +197,15 @@ export function evaluateSlotSuitability(slot = {}, capacityMetrics = {}, congest
     recommendationStatus,
     recommendationTier,
     confidenceLevel,
-    /** Current centre congestion is a live instantaneous signal, not a future slot arrival prediction */
-    congestionSignalMode: 'INSTANTANEOUS_LIVE_SIGNAL',
-    reasons
+    congestionSignalMode,
+    reasons,
+    evidence: {
+      isFutureDate,
+      liveCongestionExcluded: isFutureDate,
+      bookedLoadRatio: maxFarmers > 0 ? parseFloat((bookedFarmers / maxFarmers).toFixed(2)) : 0.0,
+      capacityAvailableRatio: parseFloat(capacityAvailableRatio.toFixed(2)),
+      counterOperatingRatio: parseFloat(counterOperatingRatio.toFixed(2))
+    }
   };
 }
 
@@ -200,7 +233,7 @@ export function recommendProcurementSlots(slotsList = [], capacityMetrics = {}, 
 
   let recommendationSummary = 'No available procurement slots found.';
   if (bestRecommendedSlot) {
-    recommendationSummary = `Recommended Slot ${bestRecommendedSlot.startTime}-${bestRecommendedSlot.endTime} (Suitability Score: ${bestRecommendedSlot.suitabilityScore}/100, Tier: ${bestRecommendedSlot.recommendationTier}).`;
+    recommendationSummary = `Recommended Slot ${bestRecommendedSlot.startTime}-${bestRecommendedSlot.endTime} on ${bestRecommendedSlot.slotDate} (Suitability Score: ${bestRecommendedSlot.suitabilityScore}/100, Tier: ${bestRecommendedSlot.recommendationTier}).`;
   }
 
   return {

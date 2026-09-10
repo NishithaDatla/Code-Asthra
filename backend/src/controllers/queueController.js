@@ -2,6 +2,11 @@ import queueService from '../services/queue.service.js';
 import queueEventService from '../services/queueEvent.service.js';
 import etaService from '../services/eta.service.js';
 import notificationService, { NOTIFICATION_EVENT_TYPES } from '../services/notification.service.js';
+import {
+  verifyCheckInAuthorization,
+  verifyStatusTransitionAuthorization,
+  verifyQueueAccessAuthorization
+} from '../utils/queueAuth.js';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -24,6 +29,9 @@ export async function handleCheckIn(req, res) {
         message: 'Invalid centreId format. UUID required.'
       });
     }
+
+    // Role & Centre RBAC verification
+    await verifyCheckInAuthorization(req.user, bookingId);
 
     const queueEntry = await queueService.checkInBooking({ bookingId, centreId });
 
@@ -69,6 +77,9 @@ export async function handleUpdateQueueStatus(req, res) {
         message: 'Target status is required.'
       });
     }
+
+    // Role & Centre RBAC verification for status transitions
+    await verifyStatusTransitionAuthorization(req.user, id);
 
     const updatedEntry = await queueService.updateQueueStatus({
       queueEntryId: id,
@@ -119,6 +130,9 @@ export async function handleGetQueuePosition(req, res) {
       });
     }
 
+    // Role & Ownership RBAC verification for queue access
+    await verifyQueueAccessAuthorization(req.user, id);
+
     const positionData = await queueService.getQueuePosition(id);
     return res.status(200).json({
       success: true,
@@ -145,6 +159,9 @@ export async function handleGetTokenETA(req, res) {
         message: 'Invalid queue entry ID format.'
       });
     }
+
+    // Role & Ownership RBAC verification for queue access
+    await verifyQueueAccessAuthorization(req.user, id);
 
     const etaData = await etaService.getTokenETA(id);
     return res.status(200).json({
@@ -173,13 +190,17 @@ export async function handleGetQueueEvents(req, res) {
       });
     }
 
+    // Role & Ownership RBAC verification for queue access
+    await verifyQueueAccessAuthorization(req.user, id);
+
     const events = await queueService.getQueueEvents(id);
     return res.status(200).json({
       success: true,
       data: events
     });
   } catch (err) {
-    return res.status(500).json({
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
       success: false,
       message: err.message || 'Failed to retrieve queue events.'
     });

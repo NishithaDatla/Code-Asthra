@@ -148,7 +148,7 @@ async function runLiveEndToEndTest() {
         email: TEST_EMAIL,
         phone_number: `99${TIMESTAMP.toString().slice(-8)}`,
         full_name: `${TEST_MARKER} User`,
-        role: 'FARMER'
+        role: 'CENTRE_STAFF'
       })
       .select()
       .single();
@@ -188,6 +188,20 @@ async function runLiveEndToEndTest() {
 
     if (centreErr) throw new Error(`Procurement centre insert failed: ${centreErr.message}`);
     createdCentre = centre;
+
+    // 5b. Create Centre Staff Assignment
+    const { data: staff, error: staffErr } = await supabase
+      .from('centre_staff')
+      .insert({
+        user_id: createdUser.id,
+        centre_id: createdCentre.id,
+        staff_role: 'OFFICER',
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (staffErr) throw new Error(`Centre staff insert failed: ${staffErr.message}`);
 
     // 6. Create Centre Counter
     const { data: counter, error: counterErr } = await supabase
@@ -517,6 +531,7 @@ async function runLiveEndToEndTest() {
         await supabase.from('farmers').delete().eq('id', createdFarmer.id);
       }
       if (createdUser?.id) {
+        await supabase.from('centre_staff').delete().eq('user_id', createdUser.id);
         await supabase.from('users').delete().eq('id', createdUser.id);
       }
       if (createdAuthUser?.id) {

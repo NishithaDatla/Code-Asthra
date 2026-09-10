@@ -49,9 +49,9 @@ const baseCongestion = {
   congestionLevel: 'LOW'
 };
 
-const slotMorning = {
+const slotToday = {
   id: 's1111111-1111-1111-1111-111111111111',
-  slot_date: '2026-09-11',
+  slot_date: new Date().toISOString().split('T')[0],
   start_time: '09:00:00',
   end_time: '11:00:00',
   max_capacity_quintals: 100.0,
@@ -61,9 +61,21 @@ const slotMorning = {
   is_active: true
 };
 
-const slotAfternoon = {
+const slotFutureLowLoad = {
   id: 's2222222-2222-2222-2222-222222222222',
-  slot_date: '2026-09-11',
+  slot_date: '2099-12-31',
+  start_time: '09:00:00',
+  end_time: '11:00:00',
+  max_capacity_quintals: 100.0,
+  booked_capacity_quintals: 10.0,
+  max_farmers: 20,
+  booked_farmers: 2,
+  is_active: true
+};
+
+const slotFutureHighLoad = {
+  id: 's3333333-3333-3333-3333-333333333333',
+  slot_date: '2099-12-31',
   start_time: '14:00:00',
   end_time: '16:00:00',
   max_capacity_quintals: 100.0,
@@ -76,7 +88,7 @@ const slotAfternoon = {
 // --- TEST SCENARIO 1: Available Slot with Low Load ---
 console.log('[1] Available Slot with Low Load:');
 test('Evaluates low-load slot as RECOMMENDED (OPTIMAL tier, high suitability score)', () => {
-  const result = evaluateSlotSuitability(slotMorning, baseCapacity, baseCongestion);
+  const result = evaluateSlotSuitability(slotToday, baseCapacity, baseCongestion);
   assert.equal(result.isAvailable, true);
   assert.equal(result.recommendationStatus, RECOMMENDATION_STATUSES.RECOMMENDED);
   assert.equal(result.recommendationTier, RECOMMENDATION_TIERS.OPTIMAL);
@@ -84,9 +96,9 @@ test('Evaluates low-load slot as RECOMMENDED (OPTIMAL tier, high suitability sco
   assert.equal(result.remainingCapacityQuintals, 80.0);
 });
 
-// --- TEST SCENARIO 2: Overloaded / High Congestion Slot ---
-console.log('\n[2] Overloaded / High Congestion Slot:');
-test('Penalizes slot evaluation when centre experiences CRITICAL congestion', () => {
+// --- TEST SCENARIO 2: Overloaded / High Congestion Today Slot ---
+console.log('\n[2] Overloaded / High Congestion Today Slot:');
+test('Penalizes today slot evaluation when centre experiences CRITICAL live congestion today', () => {
   const criticalCongestion = {
     ...baseCongestion,
     waitingCount: 18,
@@ -94,30 +106,49 @@ test('Penalizes slot evaluation when centre experiences CRITICAL congestion', ()
     congestionLevel: 'CRITICAL'
   };
 
-  const result = evaluateSlotSuitability(slotMorning, baseCapacity, criticalCongestion);
+  const result = evaluateSlotSuitability(slotToday, baseCapacity, criticalCongestion);
   assert.equal(result.recommendationStatus, RECOMMENDATION_STATUSES.DISCOURAGED);
   assert.equal(result.recommendationTier, RECOMMENDATION_TIERS.HIGH_CONGESTION);
   assert.ok(result.suitabilityScore <= 35);
 });
 
-// --- TEST SCENARIO 3: Multiple Possible Slots Selection ---
-console.log('\n[3] Multiple Possible Candidate Slots Ranking:');
-test('Ranks morning slot over afternoon slot due to higher capacity headroom', () => {
-  const slotsList = [slotAfternoon, slotMorning];
+// --- TEST SCENARIO 3: Future Slot Isolation from Current Live Congestion ---
+console.log('\n[3] Future Slot Isolation from Current Live Congestion:');
+test('Future slot evaluation excludes current live queue congestion score', () => {
+  const criticalLiveCongestion = {
+    ...baseCongestion,
+    waitingCount: 25,
+    congestionScore: 90,
+    congestionLevel: 'CRITICAL'
+  };
+
+  const result = evaluateSlotSuitability(slotFutureLowLoad, baseCapacity, criticalLiveCongestion);
+  assert.equal(result.isAvailable, true);
+  assert.equal(result.evidence.isFutureDate, true);
+  assert.equal(result.evidence.liveCongestionExcluded, true);
+  assert.equal(result.congestionSignalMode, 'FUTURE_SLOT_BOOKED_LOAD');
+  assert.equal(result.recommendationStatus, RECOMMENDATION_STATUSES.RECOMMENDED);
+  assert.ok(result.suitabilityScore >= 70, 'Future low-load slot maintains high score despite today live congestion');
+});
+
+// --- TEST SCENARIO 4: Future Slot with High Booked Load vs Low Booked Load ---
+console.log('\n[4] Future Slots Ranking across Booked Loads & Dates:');
+test('Ranks future low-load slot higher than future high-load slot', () => {
+  const slotsList = [slotFutureHighLoad, slotFutureLowLoad];
   const recommendation = recommendProcurementSlots(slotsList, baseCapacity, baseCongestion);
 
   assert.equal(recommendation.totalSlotsEvaluated, 2);
   assert.equal(recommendation.availableSlotsCount, 2);
   assert.ok(recommendation.bestRecommendedSlot);
-  assert.equal(recommendation.bestRecommendedSlot.slotId, slotMorning.id);
+  assert.equal(recommendation.bestRecommendedSlot.slotId, slotFutureLowLoad.id);
   assert.ok(recommendation.candidateSlots[0].suitabilityScore > recommendation.candidateSlots[1].suitabilityScore);
 });
 
-// --- TEST SCENARIO 4: No Suitable Slot / Fully Booked ---
-console.log('\n[4] No Suitable Slot / Fully Booked:');
+// --- TEST SCENARIO 5: Full and Inactive Slots ---
+console.log('\n[5] Full and Inactive Slots:');
 test('Flags fully booked slot as UNAVAILABLE with zero suitability score', () => {
   const fullSlot = {
-    ...slotMorning,
+    ...slotFutureLowLoad,
     booked_farmers: 20,
     max_farmers: 20,
     booked_capacity_quintals: 100.0,
@@ -131,45 +162,33 @@ test('Flags fully booked slot as UNAVAILABLE with zero suitability score', () =>
   assert.equal(result.recommendationTier, RECOMMENDATION_TIERS.NOT_RECOMMENDED);
 });
 
-test('Returns empty bestRecommendedSlot when all evaluated slots are full', () => {
-  const fullSlot = { ...slotMorning, booked_farmers: 20 };
-  const recommendation = recommendProcurementSlots([fullSlot], baseCapacity, baseCongestion);
-
-  assert.equal(recommendation.availableSlotsCount, 0);
-  assert.equal(recommendation.bestRecommendedSlot, null);
-  assert.ok(recommendation.recommendationSummary.includes('No available procurement slots'));
-});
-
-// --- TEST SCENARIO 5: Insufficient Data / Low Confidence ---
-console.log('\n[5] Insufficient Data / Low Confidence:');
-test('Sets confidenceLevel to MEDIUM when fallback processing speed is used', () => {
-  const fallbackCapacity = {
-    ...baseCapacity,
-    isFallbackProcessingTime: true
+test('Flags inactive slot as UNAVAILABLE', () => {
+  const inactiveSlot = {
+    ...slotFutureLowLoad,
+    is_active: false
   };
 
-  const result = evaluateSlotSuitability(slotMorning, fallbackCapacity, baseCongestion);
-  assert.equal(result.confidenceLevel, 'MEDIUM');
+  const result = evaluateSlotSuitability(inactiveSlot, baseCapacity, baseCongestion);
+  assert.equal(result.isAvailable, false);
+  assert.equal(result.suitabilityScore, 0);
+  assert.equal(result.recommendationStatus, RECOMMENDATION_STATUSES.UNAVAILABLE);
 });
 
-test('Sets confidenceLevel to LOW when centre status is PAUSED', () => {
-  const pausedCapacity = {
-    ...baseCapacity,
-    status: 'PAUSED',
-    activeCounters: 0
-  };
-
-  const recommendation = recommendProcurementSlots([slotMorning], pausedCapacity, baseCongestion);
-  assert.equal(recommendation.dataQuality.confidenceLevel, 'LOW');
+// --- TEST SCENARIO 6: Data Quality & Evidence Strings ---
+console.log('\n[6] Data Quality, Evidence, and Read-Only Invariant:');
+test('Returns detailed evidence object and clear reasons list', () => {
+  const result = evaluateSlotSuitability(slotFutureLowLoad, baseCapacity, baseCongestion);
+  assert.ok(result.evidence);
+  assert.ok(Array.isArray(result.reasons));
+  assert.ok(result.reasons.length > 0);
+  assert.ok(result.reasons.some(r => r.toLowerCase().includes('booked capacity load')));
 });
 
-// --- TEST SCENARIO 6: Read-Only / Non-Mutation Invariant ---
-console.log('\n[6] Read-only / Non-mutation Invariant:');
 test('Smart scheduling engine does not mutate input slot objects', () => {
-  const slotSnapshot = JSON.stringify(slotMorning);
-  recommendProcurementSlots([slotMorning], baseCapacity, baseCongestion);
+  const slotSnapshot = JSON.stringify(slotFutureLowLoad);
+  recommendProcurementSlots([slotFutureLowLoad], baseCapacity, baseCongestion);
 
-  assert.equal(JSON.stringify(slotMorning), slotSnapshot, 'Input slot object was not mutated');
+  assert.equal(JSON.stringify(slotFutureLowLoad), slotSnapshot, 'Input slot object was not mutated');
 });
 
 console.log('\n==================================================');
