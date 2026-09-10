@@ -1,4 +1,5 @@
 import { supabase, supabaseAnon } from '../config/supabase.js';
+import { normalizePhone } from '../validators/authValidator.js';
 
 export async function registerUser(payload) {
   const role = 'FARMER';
@@ -178,6 +179,88 @@ export async function getCurrentUser(authUserId) {
   }
 
   return {
+    user: userData,
+    farmer: farmerData
+  };
+}
+
+export async function sendFarmerOtp({ phone }) {
+  const normalizedPhone = normalizePhone(phone);
+
+  // Invoke Supabase Auth signInWithOtp
+  const { error } = await supabaseAnon.auth.signInWithOtp({
+    phone: normalizedPhone
+  });
+
+  if (error) {
+    console.warn('[Supabase OTP Send Warning]:', error.message);
+  }
+
+  // Account-enumeration shielded generic response
+  return {
+    success: true,
+    message: 'If this mobile number is registered, an OTP has been sent.'
+  };
+}
+
+export async function verifyFarmerOtp({ phone, otp }) {
+  const normalizedPhone = normalizePhone(phone);
+  const plainPhone10Digits = normalizedPhone.replace(/^\+91/, '');
+
+  // 1. Verify OTP with Supabase Auth
+  const { data: authData, error: authError } = await supabaseAnon.auth.verifyOtp({
+    phone: normalizedPhone,
+    token: otp,
+    type: 'sms'
+  });
+
+  if (authError || !authData?.user) {
+    throw new Error('Invalid or expired OTP.');
+  }
+
+  const authUserId = authData.user.id;
+
+  // 2. Fetch internal application user record
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('*')
+    .or(`auth_id.eq.${authUserId},phone_number.eq.${normalizedPhone},phone_number.eq.${plainPhone10Digits}`)
+    .maybeSingle();
+
+  if (userError || !userData) {
+    throw new Error('User account not found or not registered as a farmer.');
+  }
+
+  // 3. Security check: Only FARMER accounts can authenticate via Farmer OTP
+  if (userData.role !== 'FARMER') {
+    throw new Error('Forbidden. Mobile OTP authentication is only allowed for farmer accounts.');
+  }
+
+  // 4. Verify account active status
+  if (userData.is_active === false) {
+    throw new Error('Forbidden. User account is inactive.');
+  }
+
+  // 5. Ensure auth_id is linked to current Supabase Auth user ID
+  if (userData.auth_id !== authUserId) {
+    await supabase.from('users').update({ auth_id: authUserId }).eq('id', userData.id);
+    userData.auth_id = authUserId;
+  }
+
+  // 6. Fetch farmer profile
+  const { data: farmerData } = await supabase
+    .from('farmers')
+    .select('*')
+    .eq('user_id', userData.id)
+    .maybeSingle();
+
+  return {
+    session: authData.session ? {
+      access_token: authData.session.access_token,
+      refresh_token: authData.session.refresh_token,
+      expires_in: authData.session.expires_in,
+      token_type: authData.session.token_type
+    } : null,
     user: userData,
     farmer: farmerData
   };

@@ -59,8 +59,20 @@ export const generalApiLimiter = createCustomLimiter({
   message: 'Too many requests. Please try again later.'
 });
 
+/**
+ * 4. Dedicated OTP Request Limiter
+ * Protects SMS sending against abuse.
+ * Configuration: 5 requests per 15 minutes per IP.
+ */
+export const otpLimiter = createCustomLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: 'Too many OTP requests. Please try again after 15 minutes.'
+});
+
 export default {
   authLimiter,
   sensitiveWriteLimiter,
-  generalApiLimiter
+  generalApiLimiter,
+  otpLimiter
 };
