@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import env from './config/env.js';
+import { generalApiLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/authRoutes.js';
 import farmerRoutes from './routes/farmerRoutes.js';
 import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
@@ -16,6 +17,9 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 const app = express();
+
+// Trust proxy for reverse proxies (Render, Railway, Nginx)
+app.set('trust proxy', 1);
 
 // Security HTTP headers
 app.use(helmet());
@@ -35,7 +39,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health Check Endpoint
+// Health Check Endpoint (Excluded from rate limiting)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -43,6 +47,9 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Apply General API Rate Limiter to all /api endpoints
+app.use('/api', generalApiLimiter);
 
 // Authentication Routes
 app.use('/api/auth', authRoutes);

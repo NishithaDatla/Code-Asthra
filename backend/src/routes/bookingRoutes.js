@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
+import { sensitiveWriteLimiter } from '../middleware/rateLimiter.js';
 import {
   handleCreateBooking,
   handleRescheduleBooking,
@@ -12,8 +13,8 @@ const router = express.Router();
 router.use(authenticateToken, requireRole('FARMER'));
 
 // Approved Phase 5F Endpoints
-router.post('/', handleCreateBooking);
-router.put('/:id/reschedule', handleRescheduleBooking);
-router.delete('/:id', handleCancelBooking);
+router.post('/', sensitiveWriteLimiter, handleCreateBooking);
+router.put('/:id/reschedule', sensitiveWriteLimiter, handleRescheduleBooking);
+router.delete('/:id', sensitiveWriteLimiter, handleCancelBooking);
 
 export default router;

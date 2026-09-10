@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
+import { sensitiveWriteLimiter } from '../middleware/rateLimiter.js';
 import paymentController from '../controllers/paymentController.js';
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.put(
   '/:id/status',
   authenticateToken,
   requireRole('CENTRE_STAFF', 'CENTRE_ADMIN', 'SYSTEM_ADMIN'),
+  sensitiveWriteLimiter,
   paymentController.updatePaymentStatus
 );
 

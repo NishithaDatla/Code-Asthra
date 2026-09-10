@@ -6,6 +6,7 @@ import {
   handleCompleteProcurement
 } from '../controllers/procurementController.js';
 import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
+import { sensitiveWriteLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get(
 router.post(
   '/:id/quality',
   requireRole('CENTRE_STAFF', 'CENTRE_ADMIN', 'SYSTEM_ADMIN'),
+  sensitiveWriteLimiter,
   handleSubmitQualityCheck
 );
 
@@ -30,6 +32,7 @@ router.post(
 router.post(
   '/:id/weigh',
   requireRole('CENTRE_STAFF', 'CENTRE_ADMIN', 'SYSTEM_ADMIN'),
+  sensitiveWriteLimiter,
   handleSubmitWeighing
 );
 
@@ -37,6 +40,7 @@ router.post(
 router.post(
   '/:id/complete',
   requireRole('CENTRE_STAFF', 'CENTRE_ADMIN', 'SYSTEM_ADMIN'),
+  sensitiveWriteLimiter,
   handleCompleteProcurement
 );
 
