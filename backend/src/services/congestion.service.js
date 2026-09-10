@@ -40,9 +40,8 @@ export const CONGESTION_BACKLOG_UPPER_BOUND_HOURS = 2.0;
 
 export const CONGESTION_LEVELS = {
   LOW: 'LOW',
-  MODERATE: 'MODERATE',
-  HIGH: 'HIGH',
-  CRITICAL: 'CRITICAL'
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH'
 };
 
 /**
@@ -81,10 +80,10 @@ export function calculateCentreCongestion(capacityMetrics = {}, queueCounts = {}
         estimatedBacklogHours: null,
         estimatedBacklogMinutes: null,
         congestionScore: 100,
-        congestionLevel: CONGESTION_LEVELS.CRITICAL,
+        congestionLevel: CONGESTION_LEVELS.HIGH,
         confidenceLevel: 'LOW',
         activeCounterUtilizationRatio,
-        explanation: `CRITICAL Congestion: ${waitingCount} farmers waiting, but centre status is '${status}' with 0 active counters.`
+        explanation: `HIGH Congestion: ${waitingCount} farmers waiting, but centre status is '${status}' with 0 active counters.`
       };
     }
 
@@ -121,15 +120,12 @@ export function calculateCentreCongestion(capacityMetrics = {}, queueCounts = {}
   let congestionLevel = CONGESTION_LEVELS.LOW;
   let summaryDesc = 'Low demand within standard capacity.';
 
-  if (congestionScore >= 75) {
-    congestionLevel = CONGESTION_LEVELS.CRITICAL;
-    summaryDesc = 'Critical congestion backlog (>= 90 mins wait time).';
-  } else if (congestionScore >= 50) {
+  if (congestionScore >= 66) {
     congestionLevel = CONGESTION_LEVELS.HIGH;
-    summaryDesc = 'High congestion backlog (60-90 mins wait time).';
-  } else if (congestionScore >= 25) {
-    congestionLevel = CONGESTION_LEVELS.MODERATE;
-    summaryDesc = 'Moderate peak load (30-60 mins wait time).';
+    summaryDesc = 'High congestion backlog (>= 60 mins wait time).';
+  } else if (congestionScore >= 33) {
+    congestionLevel = CONGESTION_LEVELS.MEDIUM;
+    summaryDesc = 'Medium congestion load (30-60 mins wait time).';
   }
 
   // Determine confidence level based on data source quality

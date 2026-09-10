@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
   handleTriggerNotification,
-  handleGetUserNotifications
+  handleGetUserNotifications,
+  handleMarkNotificationAsRead
 } from '../controllers/notificationController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
@@ -12,5 +13,6 @@ router.use(authenticateToken);
 
 router.post('/trigger', handleTriggerNotification);
 router.get('/', handleGetUserNotifications);
+router.put('/:id/read', handleMarkNotificationAsRead);
 
 export default router;
