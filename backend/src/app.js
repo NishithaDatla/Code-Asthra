@@ -12,6 +12,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import queueRoutes from './routes/queueRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import procurementRoutes from './routes/procurementRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const app = express();
 
@@ -68,6 +69,9 @@ app.use('/api/notifications', notificationRoutes);
 
 // Procurement Processing & Verification Routes
 app.use('/api/procurement', procurementRoutes);
+
+// Payment Management Routes
+app.use('/api/payments', paymentRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {

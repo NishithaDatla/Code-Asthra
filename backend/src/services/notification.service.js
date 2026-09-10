@@ -32,7 +32,8 @@ export const NOTIFICATION_EVENT_TYPES = {
   SERVICE_COMPLETED: 'SERVICE_COMPLETED',
   ETA_UPDATED: 'ETA_UPDATED',
   DISRUPTION_ALERT: 'DISRUPTION_ALERT',
-  SLOT_RECOMMENDED: 'SLOT_RECOMMENDED'
+  SLOT_RECOMMENDED: 'SLOT_RECOMMENDED',
+  PAYMENT_PROCESSED: 'PAYMENT_PROCESSED'
 };
 
 export const NOTIFICATION_TYPE_ENUMS = {
@@ -109,6 +110,12 @@ export function generateNotificationPayload(eventType, context = {}) {
       dbNotificationType = NOTIFICATION_TYPE_ENUMS.SLOT_REMINDER;
       title = 'Slot Recommendation';
       message = `SmartProcure: Recommended slot ${context.startTime || ''}-${context.endTime || ''} on ${context.slotDate || ''} at ${centreName}.`;
+      break;
+
+    case NOTIFICATION_EVENT_TYPES.PAYMENT_PROCESSED:
+      dbNotificationType = NOTIFICATION_TYPE_ENUMS.PAYMENT_PROCESSED;
+      title = 'Payment Processed';
+      message = `SmartProcure: Payment of Rs. ${context.amount || 0} has been processed (Ref: ${context.paymentReference || 'N/A'}).`;
       break;
 
     default:
