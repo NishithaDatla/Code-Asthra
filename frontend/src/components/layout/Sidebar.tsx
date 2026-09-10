@@ -8,12 +8,13 @@ import {
   PackageCheck,
   User,
   Building2,
-  Users,
   HelpCircle,
   LogOut,
   Bell,
   Clock,
   Scale,
+  BarChart3,
+  AlertTriangle,
 } from 'lucide-react';
 import { KisanMargLogo } from '../common/KisanMargLogo';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
@@ -63,8 +64,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const adminLinks: SidebarLink[] = [
     { label: 'Admin Command Center', icon: <LayoutDashboard className="h-4 w-4" />, path: '/admin/dashboard' },
-    { label: 'Procurement Centres', icon: <Building2 className="h-4 w-4" />, path: '/admin/dashboard' },
-    { label: 'Staff & Capacity', icon: <Users className="h-4 w-4" />, path: '/admin/dashboard' },
+    { label: 'Procurement Centres', icon: <Building2 className="h-4 w-4" />, path: '/admin/centres' },
+    { label: 'Operational Analytics', icon: <BarChart3 className="h-4 w-4" />, path: '/admin/analytics' },
+    { label: 'Congestion Monitor', icon: <AlertTriangle className="h-4 w-4" />, path: '/admin/congestion' },
   ];
 
   const links = role === 'FARMER' ? farmerLinks : role === 'CENTRE_STAFF' ? staffLinks : adminLinks;

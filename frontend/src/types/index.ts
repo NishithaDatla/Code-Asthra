@@ -179,6 +179,7 @@ export interface PaymentRecord {
 
 export interface MockCentre {
   id: string;
+  code?: string;
   name: string;
   district: string;
   state: string;
@@ -187,10 +188,20 @@ export interface MockCentre {
   activeQueues: number;
   capacityPerDayKg: number;
   todaysProcuredKg: number;
+  capacityQuintalsPerDay?: number;
+  todaysProcuredQuintals?: number;
   address?: string;
   totalCounters?: number;
+  activeCounters?: number;
   operatingHours?: string;
   contactPhone?: string;
+  todaysBookingsCount?: number;
+  todaysCompletionsCount?: number;
+  checkedInCount?: number;
+  waitingCount?: number;
+  activeTokenNumber?: string;
+  activeTokenFarmerName?: string;
+  activeTokenCropName?: string;
 }
 
 export interface MockBooking {

@@ -22,7 +22,11 @@ import { StaffDashboardPage } from '../pages/StaffDashboardPage';
 import { StaffBookingsPage } from '../pages/StaffBookingsPage';
 import { StaffQueuePage } from '../pages/StaffQueuePage';
 import { StaffProcurementPage } from '../pages/StaffProcurementPage';
-import { AdminDashboardPlaceholder } from '../pages/AdminDashboardPlaceholder';
+import { AdminDashboardPage } from '../pages/AdminDashboardPage';
+import { AdminCentresPage } from '../pages/AdminCentresPage';
+import { AdminCentreDetailPage } from '../pages/AdminCentreDetailPage';
+import { AdminAnalyticsPage } from '../pages/AdminAnalyticsPage';
+import { AdminCongestionPage } from '../pages/AdminCongestionPage';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
 import { FarmerLayout, StaffLayout, AdminLayout } from '../layouts/FarmerLayout';
 import type { UserRole } from '../types';
@@ -99,8 +103,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="/staff/queue" element={<StaffQueuePage />} />
         <Route path="/staff/procurement/:id" element={<StaffProcurementPage />} />
 
-        {/* Admin Placeholder Dashboard Route */}
-        <Route path="/admin/dashboard" element={<AdminDashboardPlaceholder />} />
+        {/* Phase 8J System Admin Routes */}
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin/centres" element={<AdminCentresPage />} />
+        <Route path="/admin/centres/:id" element={<AdminCentreDetailPage />} />
+        <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+        <Route path="/admin/congestion" element={<AdminCongestionPage />} />
 
         {/* Development Route for Design System Showcase */}
         <Route
