@@ -64,9 +64,9 @@ test('Minimal queue (1 waiting farmer, 5 mins backlog) yields LOW level (<25% sc
   assert.equal(result.congestionScore, 4); // Math.round((0.08 / 2.0) * 100) = 4%
 });
 
-// --- TEST SCENARIO 2: Normal / Moderate Load ---
-console.log('\n[2] Normal / Moderate Queue Load (30-60 mins backlog):');
-test('4 waiting farmers (20 mins backlog) yields LOW-MODERATE range', () => {
+// --- TEST SCENARIO 2: Normal / Medium Load ---
+console.log('\n[2] Normal / Medium Queue Load (33-65% congestion score):');
+test('4 waiting farmers (20 mins backlog) yields LOW level (17% score)', () => {
   // 4 waiting farmers / 12 tokens per hr = 0.33 hours (20 mins backlog) => score 17% (LOW)
   const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 4, inServiceCount: 2 });
   assert.equal(result.estimatedBacklogMinutes, 20);
@@ -74,53 +74,53 @@ test('4 waiting farmers (20 mins backlog) yields LOW-MODERATE range', () => {
   assert.equal(result.congestionLevel, CONGESTION_LEVELS.LOW);
 });
 
-test('6 waiting farmers (30 mins backlog) yields MODERATE level (25% score)', () => {
-  // 6 waiting farmers / 12 tokens per hr = 0.50 hours (30 mins backlog) => score 25% (MODERATE)
-  const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 6, inServiceCount: 2 });
-  assert.equal(result.estimatedBacklogMinutes, 30);
-  assert.equal(result.congestionScore, 25);
-  assert.equal(result.congestionLevel, CONGESTION_LEVELS.MODERATE);
+test('8 waiting farmers (40 mins backlog) yields MEDIUM level (34% score)', () => {
+  // 8 waiting farmers / 12 tokens per hr = 0.67 hours (40 mins backlog) => score 34% (MEDIUM)
+  const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 8, inServiceCount: 2 });
+  assert.equal(result.estimatedBacklogMinutes, 40);
+  assert.equal(result.congestionScore, 34);
+  assert.equal(result.congestionLevel, CONGESTION_LEVELS.MEDIUM);
 });
 
 // --- TEST SCENARIO 3: High Load ---
-console.log('\n[3] High Queue Load (60-90 mins backlog):');
-test('12 waiting farmers (60 mins backlog) yields HIGH level (50% score)', () => {
-  // 12 waiting farmers / 12 tokens per hr = 1.00 hour (60 mins backlog) => score 50% (HIGH)
+console.log('\n[3] High Queue Load (>= 66% score):');
+test('12 waiting farmers (60 mins backlog) yields MEDIUM level (50% score)', () => {
+  // 12 waiting farmers / 12 tokens per hr = 1.00 hour (60 mins backlog) => score 50% (MEDIUM)
   const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 12, inServiceCount: 2 });
   assert.equal(result.estimatedBacklogHours, 1.0);
   assert.equal(result.estimatedBacklogMinutes, 60);
   assert.equal(result.congestionScore, 50);
+  assert.equal(result.congestionLevel, CONGESTION_LEVELS.MEDIUM);
+});
+
+test('16 waiting farmers (80 mins backlog) yields HIGH level (67% score)', () => {
+  // 16 waiting farmers / 12 tokens per hr = 1.33 hours (80 mins backlog) => score 67% (HIGH)
+  const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 16, inServiceCount: 2 });
+  assert.equal(result.estimatedBacklogMinutes, 80);
+  assert.equal(result.congestionScore, 67);
   assert.equal(result.congestionLevel, CONGESTION_LEVELS.HIGH);
 });
 
-test('15 waiting farmers (75 mins backlog) yields HIGH level (63% score)', () => {
-  // 15 waiting farmers / 12 tokens per hr = 1.25 hours (75 mins backlog) => score 63% (HIGH)
-  const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 15, inServiceCount: 2 });
-  assert.equal(result.estimatedBacklogMinutes, 75);
-  assert.equal(result.congestionScore, 63);
-  assert.equal(result.congestionLevel, CONGESTION_LEVELS.HIGH);
-});
-
-// --- TEST SCENARIO 4: Critical Load / Severe Backlog ---
-console.log('\n[4] Critical Queue Load (>= 90 mins backlog):');
-test('18 waiting farmers (90 mins backlog) yields CRITICAL level (75% score)', () => {
-  // 18 waiting farmers / 12 tokens per hr = 1.50 hours (90 mins backlog) => score 75% (CRITICAL)
+// --- TEST SCENARIO 4: High Load & Cap Bounding ---
+console.log('\n[4] Severe Backlog & Score Bounding (>= 66% score):');
+test('18 waiting farmers (90 mins backlog) yields HIGH level (75% score)', () => {
+  // 18 waiting farmers / 12 tokens per hr = 1.50 hours (90 mins backlog) => score 75% (HIGH)
   const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 18, inServiceCount: 2 });
   assert.equal(result.estimatedBacklogHours, 1.5);
   assert.equal(result.estimatedBacklogMinutes, 90);
   assert.equal(result.congestionScore, 75);
-  assert.equal(result.congestionLevel, CONGESTION_LEVELS.CRITICAL);
+  assert.equal(result.congestionLevel, CONGESTION_LEVELS.HIGH);
 });
 
-test('24+ waiting farmers (120+ mins backlog) caps score at 100% (CRITICAL level)', () => {
+test('24+ waiting farmers (120+ mins backlog) caps score at 100% (HIGH level)', () => {
   const result = calculateCentreCongestion(baseCapacityMetrics, { waitingCount: 24, inServiceCount: 2 });
   assert.equal(result.congestionScore, 100);
-  assert.equal(result.congestionLevel, CONGESTION_LEVELS.CRITICAL);
+  assert.equal(result.congestionLevel, CONGESTION_LEVELS.HIGH);
 });
 
 // --- TEST SCENARIO 5: Zero Active Counters / PAUSED Centre ---
 console.log('\n[5] Zero Active Counters or PAUSED Centre with Waiting Farmers:');
-test('Paused centre with waiting farmers yields CRITICAL level with score 100 and LOW confidence', () => {
+test('Paused centre with waiting farmers yields HIGH level with score 100 and LOW confidence', () => {
   const pausedMetrics = {
     ...baseCapacityMetrics,
     status: 'PAUSED',
@@ -129,10 +129,10 @@ test('Paused centre with waiting farmers yields CRITICAL level with score 100 an
   };
   const result = calculateCentreCongestion(pausedMetrics, { waitingCount: 5, inServiceCount: 0 });
   assert.equal(result.congestionScore, 100);
-  assert.equal(result.congestionLevel, CONGESTION_LEVELS.CRITICAL);
+  assert.equal(result.congestionLevel, CONGESTION_LEVELS.HIGH);
   assert.equal(result.confidenceLevel, 'LOW');
   assert.equal(result.estimatedBacklogHours, null);
-  assert.ok(result.explanation.includes('CRITICAL'));
+  assert.ok(result.explanation.includes('HIGH'));
 });
 
 test('Paused centre with ZERO waiting farmers yields LOW level (0% score)', () => {
@@ -147,16 +147,25 @@ test('Paused centre with ZERO waiting farmers yields LOW level (0% score)', () =
   assert.equal(result.congestionLevel, CONGESTION_LEVELS.LOW);
 });
 
-// --- TEST SCENARIO 6: Insufficient Data / Fallback Confidence ---
-console.log('\n[6] Insufficient Data / Fallback Processing Speed:');
-test('Uses MEDIUM confidence level when baseline fallback processing speed is active', () => {
-  const fallbackCapacity = {
+// --- TEST SCENARIO 6: Strict Enum & Safety Checks (No MODERATE / CRITICAL, No NaN / Infinity) ---
+console.log('\n[6] Strict Enum & Safety Checks (No MODERATE/CRITICAL, Bounded, No NaN):');
+test('CONGESTION_LEVELS contains ONLY LOW, MEDIUM, HIGH (No MODERATE, No CRITICAL)', () => {
+  assert.deepEqual(Object.keys(CONGESTION_LEVELS).sort(), ['HIGH', 'LOW', 'MEDIUM']);
+  assert.equal(CONGESTION_LEVELS.MODERATE, undefined);
+  assert.equal(CONGESTION_LEVELS.CRITICAL, undefined);
+});
+
+test('Zero active counters with 0 throughput produces valid non-NaN metrics', () => {
+  const zeroCap = {
     ...baseCapacityMetrics,
-    isFallbackProcessingTime: true,
-    sampleSize: 1
+    activeCounters: 0,
+    effectiveTokensPerHour: 0.0
   };
-  const result = calculateCentreCongestion(fallbackCapacity, { waitingCount: 6, inServiceCount: 2 });
-  assert.equal(result.confidenceLevel, 'MEDIUM');
+  const result = calculateCentreCongestion(zeroCap, { waitingCount: 0, inServiceCount: 0 });
+  assert.equal(isNaN(result.congestionScore), false);
+  assert.equal(isFinite(result.congestionScore), true);
+  assert.equal(result.congestionScore, 0);
+  assert.equal(result.congestionLevel, 'LOW');
 });
 
 // --- TEST SCENARIO 7: Read-Only Invariant ---
@@ -178,3 +187,4 @@ console.log('==================================================');
 if (failed > 0) {
   process.exit(1);
 }
+
