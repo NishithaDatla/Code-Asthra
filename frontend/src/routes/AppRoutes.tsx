@@ -14,6 +14,7 @@ import { FarmerCentreAvailabilityPage } from '../pages/FarmerCentreAvailabilityP
 import { FarmerSchedulePage } from '../pages/FarmerSchedulePage';
 import { FarmerBookingReviewPage } from '../pages/FarmerBookingReviewPage';
 import { FarmerBookingDetailPage } from '../pages/FarmerBookingDetailPage';
+import { FarmerQueuePage } from '../pages/FarmerQueuePage';
 import { StaffDashboardPlaceholder } from '../pages/StaffDashboardPlaceholder';
 import { AdminDashboardPlaceholder } from '../pages/AdminDashboardPlaceholder';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
@@ -72,8 +73,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="/farmer/booking/review" element={<FarmerBookingReviewPage />} />
         <Route path="/farmer/booking/:id" element={<FarmerBookingDetailPage />} />
 
+        {/* Phase 8F Live Queue Routes */}
+        <Route path="/farmer/queue/:bookingId" element={<FarmerQueuePage />} />
+
         {/* Sub-route shortcuts */}
-        <Route path="/farmer/queue" element={<FarmerDashboardPage />} />
         <Route path="/farmer/procurement" element={<FarmerCentresPage />} />
         <Route path="/farmer/payments" element={<FarmerDashboardPage />} />
 

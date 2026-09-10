@@ -197,7 +197,7 @@ export const FarmerDashboardPage: React.FC = () => {
                   size="sm"
                   fullWidth
                   rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
-                  onClick={() => navigate('/farmer/queue')}
+                  onClick={() => navigate('/farmer/queue/bkg-101')}
                 >
                   View Live Queue Tracker
                 </Button>

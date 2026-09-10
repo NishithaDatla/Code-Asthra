@@ -120,6 +120,21 @@ export interface SchedulingRecommendation {
   isFullyBooked: boolean;
 }
 
+export interface QueueEntry {
+  id: string;
+  bookingId: string;
+  tokenNumber: string;
+  status: QueueStatus;
+  position: number;
+  farmersAhead: number;
+  estimatedWaitMinutes: number;
+  serviceCounter: number;
+  centreName: string;
+  cropName: string;
+  quantityQuintals: number;
+  checkedInAt: string;
+}
+
 export interface MockCentre {
   id: string;
   name: string;

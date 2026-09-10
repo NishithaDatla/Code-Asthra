@@ -154,9 +154,9 @@ export const FarmerBookingDetailPage: React.FC = () => {
             <Button
               variant="primary"
               size="md"
-              onClick={() => navigate('/farmer/centres')}
+              onClick={() => navigate(`/farmer/queue/${id || 'bkg-101'}`)}
             >
-              View Centre Details
+              Check In for Queue
             </Button>
           </div>
         </Card>

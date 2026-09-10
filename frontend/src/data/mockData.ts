@@ -7,6 +7,7 @@ import type {
   ProcurementRequest,
   AvailabilitySlot,
   SchedulingRecommendation,
+  QueueEntry,
 } from '../types';
 
 export const MOCK_CROPS: Crop[] = [
@@ -251,11 +252,42 @@ export const MOCK_FARMER_PROFILE: MockFarmerProfile = {
 
 export const MOCK_QUEUE_STATUS = {
   isCheckedIn: true,
-  tokenNumber: 'A-042',
+  tokenNumber: 'Q-104',
   farmersAhead: 5,
-  estimatedWaitMinutes: 35,
+  estimatedWaitMinutes: 25,
   serviceCounter: 2,
   status: 'WAITING' as const,
+};
+
+export const MOCK_QUEUE_ENTRIES: Record<string, QueueEntry> = {
+  'bkg-101': {
+    id: 'q-101',
+    bookingId: 'bkg-101',
+    tokenNumber: 'Q-104',
+    status: 'WAITING',
+    position: 6,
+    farmersAhead: 5,
+    estimatedWaitMinutes: 25,
+    serviceCounter: 2,
+    centreName: 'Karnal Grain Mandi Main Procurement Centre',
+    cropName: 'Wheat (Grade A / Kanak)',
+    quantityQuintals: 250,
+    checkedInAt: '09:45 AM',
+  },
+  'bkg-102': {
+    id: 'q-102',
+    bookingId: 'bkg-102',
+    tokenNumber: 'Q-108',
+    status: 'CALLED',
+    position: 1,
+    farmersAhead: 0,
+    estimatedWaitMinutes: 0,
+    serviceCounter: 4,
+    centreName: 'Ambala Cantt Agricultural Procurement Yard',
+    cropName: 'Paddy (Basmati / Dhan)',
+    quantityQuintals: 120,
+    checkedInAt: '10:15 AM',
+  },
 };
 
 export const MOCK_PAYMENT_SUMMARY = {
