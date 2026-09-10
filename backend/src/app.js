@@ -7,6 +7,7 @@ import authRoutes from './routes/authRoutes.js';
 import farmerRoutes from './routes/farmerRoutes.js';
 import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
 import centreRoutes from './routes/centreRoutes.js';
+import schedulingRoutes from './routes/schedulingRoutes.js';
 
 const app = express();
 
@@ -48,6 +49,9 @@ app.use('/api/procurement-requests', procurementRequestRoutes);
 
 // Procurement Centre Routes
 app.use('/api/centres', centreRoutes);
+
+// Smart Scheduling & Recommendation Routes
+app.use('/api/scheduling', schedulingRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
