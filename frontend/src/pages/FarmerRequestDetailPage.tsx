@@ -50,9 +50,9 @@ export const FarmerRequestDetailPage: React.FC = () => {
           <StatusBadge status={request.status} size="md" />
         </div>
 
-        {/* Phase 8D Notice */}
-        <Alert type="info" title="Procurement Request Recorded">
-          Your request details are registered. Recommended centre availability and slot booking will open in Phase 8E.
+        {/* Phase 8E Notice */}
+        <Alert type="info" title="Ready for Smart Scheduling">
+          Your request details are registered. You can now find optimal arrival slots and procurement centres.
         </Alert>
 
         {/* Main Details Card */}
@@ -130,9 +130,9 @@ export const FarmerRequestDetailPage: React.FC = () => {
             <Button
               variant="primary"
               size="md"
-              onClick={() => navigate('/farmer/centres')}
+              onClick={() => navigate(`/farmer/schedule/${request.id}`)}
             >
-              Explore Procurement Centres
+              Schedule Procurement
             </Button>
           </div>
         </Card>

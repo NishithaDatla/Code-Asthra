@@ -107,7 +107,7 @@ export const FarmerDashboardPage: React.FC = () => {
                   size="lg"
                   className="w-full md:w-auto px-6"
                   rightIcon={<ChevronRight className="h-4 w-4" />}
-                  onClick={() => navigate('/farmer/bookings')}
+                  onClick={() => navigate('/farmer/booking/bkg-101')}
                 >
                   View Booking Token
                 </Button>

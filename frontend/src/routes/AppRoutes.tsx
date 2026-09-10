@@ -11,6 +11,9 @@ import { FarmerRequestsListPage } from '../pages/FarmerRequestsListPage';
 import { FarmerCentresPage } from '../pages/FarmerCentresPage';
 import { FarmerCentreDetailPage } from '../pages/FarmerCentreDetailPage';
 import { FarmerCentreAvailabilityPage } from '../pages/FarmerCentreAvailabilityPage';
+import { FarmerSchedulePage } from '../pages/FarmerSchedulePage';
+import { FarmerBookingReviewPage } from '../pages/FarmerBookingReviewPage';
+import { FarmerBookingDetailPage } from '../pages/FarmerBookingDetailPage';
 import { StaffDashboardPlaceholder } from '../pages/StaffDashboardPlaceholder';
 import { AdminDashboardPlaceholder } from '../pages/AdminDashboardPlaceholder';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
@@ -64,8 +67,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="/farmer/centres/:id" element={<FarmerCentreDetailPage />} />
         <Route path="/farmer/centres/:id/availability" element={<FarmerCentreAvailabilityPage />} />
 
+        {/* Phase 8E Smart Scheduling & Booking Routes */}
+        <Route path="/farmer/schedule/:requestId" element={<FarmerSchedulePage />} />
+        <Route path="/farmer/booking/review" element={<FarmerBookingReviewPage />} />
+        <Route path="/farmer/booking/:id" element={<FarmerBookingDetailPage />} />
+
         {/* Sub-route shortcuts */}
-        <Route path="/farmer/bookings" element={<FarmerDashboardPage />} />
         <Route path="/farmer/queue" element={<FarmerDashboardPage />} />
         <Route path="/farmer/procurement" element={<FarmerCentresPage />} />
         <Route path="/farmer/payments" element={<FarmerDashboardPage />} />

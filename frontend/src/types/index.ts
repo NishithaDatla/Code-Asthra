@@ -102,6 +102,24 @@ export interface AvailabilitySlot {
   isFullyBooked: boolean;
 }
 
+export interface SchedulingRecommendation {
+  id: string;
+  slotId: string;
+  centreId: string;
+  centreName: string;
+  district: string;
+  state: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  timeSlot: string;
+  farmerCapacityRemaining: number;
+  quantityCapacityQuintalsRemaining: number;
+  congestion: CongestionLevel;
+  recommendationReasons: string[];
+  isFullyBooked: boolean;
+}
+
 export interface MockCentre {
   id: string;
   name: string;
