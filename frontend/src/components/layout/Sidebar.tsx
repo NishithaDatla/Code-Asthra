@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import type { UserRole } from '../../types';
 import {
@@ -12,6 +12,8 @@ import {
   HelpCircle,
   LogOut,
   Bell,
+  Clock,
+  Scale,
 } from 'lucide-react';
 import { KisanMargLogo } from '../common/KisanMargLogo';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
@@ -31,10 +33,12 @@ interface SidebarLink {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   role = 'FARMER',
-  activePath = '/farmer/dashboard',
+  activePath,
   className,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = activePath || location.pathname;
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
 
   const farmerLinks: SidebarLink[] = [
@@ -51,8 +55,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const staffLinks: SidebarLink[] = [
-    { label: 'Centre Operational Desk', icon: <LayoutDashboard className="h-4 w-4" />, path: '/staff/dashboard' },
-    { label: 'Gate Check-In', icon: <CalendarCheck className="h-4 w-4" />, path: '/staff/dashboard' },
+    { label: 'Operational Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, path: '/staff/dashboard' },
+    { label: "Today's Bookings", icon: <CalendarCheck className="h-4 w-4" />, path: '/staff/bookings' },
+    { label: 'Queue Operations', icon: <Clock className="h-4 w-4" />, path: '/staff/queue' },
+    { label: 'Procurement Processing', icon: <Scale className="h-4 w-4" />, path: '/staff/procurement/proc-001' },
   ];
 
   const adminLinks: SidebarLink[] = [
@@ -74,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {role} Navigation
         </div>
         {links.map((link) => {
-          const isActive = activePath === link.path;
+          const isActive = currentPath === link.path || (link.path !== '/' && currentPath.startsWith(link.path) && link.path !== '/staff/dashboard' && link.path !== '/farmer/dashboard');
           return (
             <button
               key={link.path}

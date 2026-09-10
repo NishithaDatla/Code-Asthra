@@ -251,3 +251,32 @@ export interface NotificationItem {
   relatedEntityType?: 'booking' | 'queue' | 'procurement' | 'payment';
   relatedEntityId?: string;
 }
+
+export interface StaffBookingItem {
+  id: string;
+  bookingNumber: string;
+  farmerName: string;
+  farmerPhone: string;
+  cropType: string;
+  quantityQuintals: number;
+  slotTime: string;
+  status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  checkInStatus: 'CHECKED_IN' | 'NOT_CHECKED_IN';
+  checkInTime?: string;
+  tokenNumber?: string;
+  procurementId?: string;
+}
+
+export interface StaffQueueItem {
+  id: string;
+  tokenNumber: string;
+  farmerName: string;
+  farmerPhone: string;
+  cropName: string;
+  quantityQuintals: number;
+  status: 'WAITING' | 'CALLED' | 'IN_SERVICE' | 'COMPLETED' | 'SKIPPED';
+  serviceCounter?: number;
+  arrivalTime: string;
+  position: number;
+  procurementId?: string;
+}
