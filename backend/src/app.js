@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import env from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import farmerRoutes from './routes/farmerRoutes.js';
+import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
 
 const app = express();
 
@@ -40,6 +41,9 @@ app.use('/api/auth', authRoutes);
 
 // Farmer Routes
 app.use('/api/farmer', farmerRoutes);
+
+// Procurement Request Routes
+app.use('/api/procurement-requests', procurementRequestRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
