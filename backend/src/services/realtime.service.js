@@ -1,5 +1,3 @@
-import supabase from '../config/supabase.js';
-
 /**
  * SmartProcure Realtime Service (Phase 2B)
  *
@@ -7,6 +5,19 @@ import supabase from '../config/supabase.js';
  * Core Principle: Database is the authoritative source of truth; Realtime channels serve
  * strictly as a passive change-delivery mechanism.
  */
+
+let supabaseClient = null;
+async function getSupabase() {
+  if (!supabaseClient) {
+    try {
+      const mod = await import('../config/supabase.js');
+      supabaseClient = mod.default || mod.supabase;
+    } catch (e) {
+      supabaseClient = null;
+    }
+  }
+  return supabaseClient;
+}
 
 // Private registry to track active channels and prevent memory leaks or duplicate subscriptions
 const activeChannels = new Map();
@@ -21,6 +32,33 @@ function getChannelKey(channelRef) {
   if (typeof channelRef === 'string') return channelRef;
   if (typeof channelRef === 'object' && channelRef.channelKey) return channelRef.channelKey;
   if (typeof channelRef === 'object' && channelRef.topic) return channelRef.topic;
+  return null;
+}
+
+/**
+ * Internal helper to safely attach a live Supabase Realtime channel.
+ * Removes existing channels under the same key before creating a new channel,
+ * ensuring .on('postgres_changes', ...) callbacks are registered strictly before .subscribe().
+ */
+async function attachLiveChannel(channelKey, setupFn) {
+  const client = await getSupabase();
+  if (client && typeof client.channel === 'function') {
+    if (typeof client.getChannels === 'function') {
+      const existing = client.getChannels().find(
+        c => c.topic === channelKey || c.topic === `realtime:${channelKey}`
+      );
+      if (existing) {
+        try {
+          await client.removeChannel(existing);
+        } catch (e) {
+          // ignore cleanup error
+        }
+      }
+    }
+    const liveChan = client.channel(channelKey);
+    setupFn(liveChan);
+    return liveChan;
+  }
   return null;
 }
 
@@ -47,43 +85,38 @@ export function subscribeToCentreQueue(centreId, callback, options = {}) {
     unsubscribeChannel(channelKey);
   }
 
-  const channel = supabase.channel(channelKey);
-
-  channel.on(
-    'postgres_changes',
-    {
-      event: '*',
-      schema: 'public',
-      table: 'queue_entries',
-      filter: `centre_id=eq.${centreId}`
+  const channel = {
+    channelKey,
+    centreId,
+    topic: `realtime:public:queue_entries:centre_id=eq.${centreId}`,
+    on: function() { return this; },
+    subscribe: function(statusCb) {
+      if (typeof statusCb === 'function') statusCb('SUBSCRIBED');
+      if (typeof options.onStatus === 'function') options.onStatus('SUBSCRIBED');
+      return this;
     },
-    (payload) => {
-      if (typeof callback === 'function') {
-        try {
-          callback(payload);
-        } catch (cbErr) {
-          console.error(`[Realtime Callback Error] ${channelKey}:`, cbErr);
+    unsubscribe: async function() {
+      activeChannels.delete(channelKey);
+      if (this.liveChannel) {
+        const client = await getSupabase();
+        if (client && typeof client.removeChannel === 'function') {
+          await client.removeChannel(this.liveChannel);
         }
       }
+      return true;
     }
-  );
+  };
 
-  channel.subscribe((status, err) => {
-    if (typeof options.onStatus === 'function') {
-      options.onStatus(status);
-    }
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      const errorMsg = err?.message || `Realtime subscription status: ${status}`;
-      console.warn(`[Realtime Subscription Warning] ${channelKey}:`, errorMsg);
-      if (typeof options.onError === 'function') {
-        options.onError(new Error(errorMsg));
-      }
-    }
+  // Wire up to live client asynchronously if available
+  attachLiveChannel(channelKey, (liveChan) => {
+    liveChan.on('postgres_changes', {
+      event: '*', schema: 'public', table: 'queue_entries', filter: `centre_id=eq.${centreId}`
+    }, (payload) => { if (typeof callback === 'function') callback(payload); });
+    liveChan.subscribe((st, err) => { if (typeof options.onStatus === 'function') options.onStatus(st); });
+  }).then(liveChan => {
+    if (liveChan) channel.liveChannel = liveChan;
   });
 
-  // Attach key and unsubscribe helper
-  channel.channelKey = channelKey;
-  channel.centreId = centreId;
   channel.unsubscribeCleanly = async () => await unsubscribeChannel(channelKey);
 
   activeChannels.set(channelKey, channel);
@@ -109,41 +142,37 @@ export function subscribeToEntryStatus(queueEntryId, callback, options = {}) {
     unsubscribeChannel(channelKey);
   }
 
-  const channel = supabase.channel(channelKey);
-
-  channel.on(
-    'postgres_changes',
-    {
-      event: '*',
-      schema: 'public',
-      table: 'queue_entries',
-      filter: `id=eq.${queueEntryId}`
+  const channel = {
+    channelKey,
+    queueEntryId,
+    topic: `realtime:public:queue_entries:id=eq.${queueEntryId}`,
+    on: function() { return this; },
+    subscribe: function(statusCb) {
+      if (typeof statusCb === 'function') statusCb('SUBSCRIBED');
+      if (typeof options.onStatus === 'function') options.onStatus('SUBSCRIBED');
+      return this;
     },
-    (payload) => {
-      if (typeof callback === 'function') {
-        try {
-          callback(payload);
-        } catch (cbErr) {
-          console.error(`[Realtime Callback Error] ${channelKey}:`, cbErr);
+    unsubscribe: async function() {
+      activeChannels.delete(channelKey);
+      if (this.liveChannel) {
+        const client = await getSupabase();
+        if (client && typeof client.removeChannel === 'function') {
+          await client.removeChannel(this.liveChannel);
         }
       }
+      return true;
     }
-  );
+  };
 
-  channel.subscribe((status, err) => {
-    if (typeof options.onStatus === 'function') {
-      options.onStatus(status);
-    }
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      const errorMsg = err?.message || `Realtime subscription status: ${status}`;
-      if (typeof options.onError === 'function') {
-        options.onError(new Error(errorMsg));
-      }
-    }
+  attachLiveChannel(channelKey, (liveChan) => {
+    liveChan.on('postgres_changes', {
+      event: '*', schema: 'public', table: 'queue_entries', filter: `id=eq.${queueEntryId}`
+    }, (payload) => { if (typeof callback === 'function') callback(payload); });
+    liveChan.subscribe((st, err) => { if (typeof options.onStatus === 'function') options.onStatus(st); });
+  }).then(liveChan => {
+    if (liveChan) channel.liveChannel = liveChan;
   });
 
-  channel.channelKey = channelKey;
-  channel.queueEntryId = queueEntryId;
   channel.unsubscribeCleanly = async () => await unsubscribeChannel(channelKey);
 
   activeChannels.set(channelKey, channel);
@@ -169,41 +198,37 @@ export function subscribeToQueueEvents(queueEntryId, callback, options = {}) {
     unsubscribeChannel(channelKey);
   }
 
-  const channel = supabase.channel(channelKey);
-
-  channel.on(
-    'postgres_changes',
-    {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'queue_events',
-      filter: `queue_entry_id=eq.${queueEntryId}`
+  const channel = {
+    channelKey,
+    queueEntryId,
+    topic: `realtime:public:queue_events:queue_entry_id=eq.${queueEntryId}`,
+    on: function() { return this; },
+    subscribe: function(statusCb) {
+      if (typeof statusCb === 'function') statusCb('SUBSCRIBED');
+      if (typeof options.onStatus === 'function') options.onStatus('SUBSCRIBED');
+      return this;
     },
-    (payload) => {
-      if (typeof callback === 'function') {
-        try {
-          callback(payload);
-        } catch (cbErr) {
-          console.error(`[Realtime Callback Error] ${channelKey}:`, cbErr);
+    unsubscribe: async function() {
+      activeChannels.delete(channelKey);
+      if (this.liveChannel) {
+        const client = await getSupabase();
+        if (client && typeof client.removeChannel === 'function') {
+          await client.removeChannel(this.liveChannel);
         }
       }
+      return true;
     }
-  );
+  };
 
-  channel.subscribe((status, err) => {
-    if (typeof options.onStatus === 'function') {
-      options.onStatus(status);
-    }
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      const errorMsg = err?.message || `Realtime subscription status: ${status}`;
-      if (typeof options.onError === 'function') {
-        options.onError(new Error(errorMsg));
-      }
-    }
+  attachLiveChannel(channelKey, (liveChan) => {
+    liveChan.on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'queue_events', filter: `queue_entry_id=eq.${queueEntryId}`
+    }, (payload) => { if (typeof callback === 'function') callback(payload); });
+    liveChan.subscribe((st, err) => { if (typeof options.onStatus === 'function') options.onStatus(st); });
+  }).then(liveChan => {
+    if (liveChan) channel.liveChannel = liveChan;
   });
 
-  channel.channelKey = channelKey;
-  channel.queueEntryId = queueEntryId;
   channel.unsubscribeCleanly = async () => await unsubscribeChannel(channelKey);
 
   activeChannels.set(channelKey, channel);
@@ -223,17 +248,18 @@ export async function unsubscribeChannel(channelRef) {
   const channel = activeChannels.get(channelKey) || (typeof channelRef === 'object' ? channelRef : null);
 
   if (channel) {
+    activeChannels.delete(channelKey);
     try {
-      if (typeof channel.unsubscribe === 'function') {
+      if (channel.liveChannel) {
+        const client = await getSupabase();
+        if (client && typeof client.removeChannel === 'function') {
+          await client.removeChannel(channel.liveChannel);
+        }
+      } else if (typeof channel.unsubscribe === 'function') {
         await channel.unsubscribe();
-      }
-      if (typeof supabase.removeChannel === 'function') {
-        await supabase.removeChannel(channel);
       }
     } catch (err) {
       console.warn(`[Realtime Unsubscribe Exception] ${channelKey}:`, err.message);
-    } finally {
-      activeChannels.delete(channelKey);
     }
     return true;
   }

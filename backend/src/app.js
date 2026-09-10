@@ -9,6 +9,8 @@ import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
 import centreRoutes from './routes/centreRoutes.js';
 import schedulingRoutes from './routes/schedulingRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import queueRoutes from './routes/queueRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 const app = express();
 
@@ -56,6 +58,12 @@ app.use('/api/scheduling', schedulingRoutes);
 
 // Booking Routes
 app.use('/api/bookings', bookingRoutes);
+
+// Queue Management & Atomic State Machine Routes
+app.use('/api/queue', queueRoutes);
+
+// Notification Triggering Routes
+app.use('/api/notifications', notificationRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
