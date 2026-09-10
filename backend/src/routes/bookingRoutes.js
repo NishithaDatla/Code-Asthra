@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
 import {
   handleCreateBooking,
   handleRescheduleBooking,
@@ -8,8 +8,8 @@ import {
 
 const router = express.Router();
 
-// All Phase 5F booking routes require authentication
-router.use(authenticateToken);
+// All Phase 5F booking routes require authentication and FARMER role
+router.use(authenticateToken, requireRole('FARMER'));
 
 // Approved Phase 5F Endpoints
 router.post('/', handleCreateBooking);

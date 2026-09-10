@@ -1,12 +1,12 @@
 import { supabase, supabaseAnon } from '../config/supabase.js';
 
 export async function registerUser(payload) {
+  const role = 'FARMER';
   const {
     email,
     password,
     full_name,
     phone_number,
-    role = 'FARMER',
     land_size_acres,
     address_line,
     village_or_city,

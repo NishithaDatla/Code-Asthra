@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { handleGetProfile, handleUpdateProfile } from '../controllers/farmerController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authenticateToken, requireRole } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-router.get('/profile', authenticateToken, handleGetProfile);
-router.put('/profile', authenticateToken, handleUpdateProfile);
+router.use(authenticateToken, requireRole('FARMER'));
+
+router.get('/profile', handleGetProfile);
+router.put('/profile', handleUpdateProfile);
 
 export default router;
