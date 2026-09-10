@@ -1,0 +1,285 @@
+import type {
+  MockCentre,
+  MockBooking,
+  MockFarmerProfile,
+  MockActivity,
+  Crop,
+  ProcurementRequest,
+  AvailabilitySlot,
+} from '../types';
+
+export const MOCK_CROPS: Crop[] = [
+  {
+    id: 'crop-001',
+    name: 'Wheat (Grade A / Kanak)',
+    category: 'Cereals',
+    grade: 'Grade A',
+    mspPerQuintal: 2275,
+  },
+  {
+    id: 'crop-002',
+    name: 'Paddy (Basmati / Dhan)',
+    category: 'Cereals',
+    grade: 'Grade A',
+    mspPerQuintal: 2203,
+  },
+  {
+    id: 'crop-003',
+    name: 'Mustard (Sarson)',
+    category: 'Oilseeds',
+    grade: 'FAQ',
+    mspPerQuintal: 5650,
+  },
+  {
+    id: 'crop-004',
+    name: 'Gram (Chana)',
+    category: 'Pulses',
+    grade: 'FAQ',
+    mspPerQuintal: 5440,
+  },
+];
+
+export const MOCK_CENTRES: MockCentre[] = [
+  {
+    id: 'centre-001',
+    name: 'Karnal Grain Mandi Main Procurement Centre',
+    district: 'Karnal',
+    state: 'Haryana',
+    status: 'OPEN',
+    congestion: 'LOW',
+    activeQueues: 4,
+    capacityPerDayKg: 50000,
+    todaysProcuredKg: 18400,
+    address: 'GT Road, Near Railway Station, Karnal, Haryana 132001',
+    totalCounters: 6,
+    operatingHours: '08:00 AM - 06:00 PM',
+    contactPhone: '+91 184 225 9011',
+  },
+  {
+    id: 'centre-002',
+    name: 'Ambala Cantt Agricultural Procurement Yard',
+    district: 'Ambala',
+    state: 'Haryana',
+    status: 'OPEN',
+    congestion: 'MEDIUM',
+    activeQueues: 12,
+    capacityPerDayKg: 40000,
+    todaysProcuredKg: 29800,
+    address: 'Staff Road, Opposite Grain Market, Ambala Cantt 133001',
+    totalCounters: 4,
+    operatingHours: '08:30 AM - 05:30 PM',
+    contactPhone: '+91 171 264 4302',
+  },
+  {
+    id: 'centre-003',
+    name: 'Kurukshetra Grain Hub',
+    district: 'Kurukshetra',
+    state: 'Haryana',
+    status: 'PAUSED',
+    congestion: 'HIGH',
+    activeQueues: 28,
+    capacityPerDayKg: 60000,
+    todaysProcuredKg: 54200,
+    address: 'Pipli Road Mandi Complex, Kurukshetra 136118',
+    totalCounters: 8,
+    operatingHours: '08:00 AM - 06:00 PM',
+    contactPhone: '+91 1744 238 710',
+  },
+  {
+    id: 'centre-004',
+    name: 'Sangrur Main Grain Market Centre',
+    district: 'Sangrur',
+    state: 'Punjab',
+    status: 'OPEN',
+    congestion: 'LOW',
+    activeQueues: 2,
+    capacityPerDayKg: 45000,
+    todaysProcuredKg: 12000,
+    address: 'Mandi Road, Near District Court, Sangrur, Punjab 148001',
+    totalCounters: 5,
+    operatingHours: '09:00 AM - 05:00 PM',
+    contactPhone: '+91 1672 230 455',
+  },
+];
+
+export const MOCK_PROCUREMENT_REQUESTS: ProcurementRequest[] = [
+  {
+    id: 'REQ-2026-0901',
+    cropId: 'crop-001',
+    cropName: 'Wheat (Grade A / Kanak)',
+    estimatedQuantityQuintals: 250,
+    notes: 'Good dry moisture content wheat from Kunjpura farm. Ready for immediate weighment.',
+    status: 'CONFIRMED',
+    createdAt: '2026-09-10 10:30 AM',
+    centreName: 'Karnal Grain Mandi Main Procurement Centre',
+  },
+  {
+    id: 'REQ-2026-0902',
+    cropId: 'crop-002',
+    cropName: 'Paddy (Basmati / Dhan)',
+    estimatedQuantityQuintals: 120,
+    notes: 'Harvested yesterday. Expected yield around 120 quintals.',
+    status: 'PENDING',
+    createdAt: '2026-09-10 06:20 PM',
+    centreName: 'Ambala Cantt Agricultural Procurement Yard',
+  },
+];
+
+export const MOCK_CENTRE_AVAILABILITY: Record<string, AvailabilitySlot[]> = {
+  'centre-001': [
+    {
+      id: 'slot-01',
+      timeSlot: '08:00 AM - 09:30 AM',
+      farmerCapacityRemaining: 12,
+      quantityCapacityQuintalsRemaining: 180,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-02',
+      timeSlot: '09:30 AM - 11:00 AM',
+      farmerCapacityRemaining: 4,
+      quantityCapacityQuintalsRemaining: 50,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-03',
+      timeSlot: '11:00 AM - 12:30 PM',
+      farmerCapacityRemaining: 0,
+      quantityCapacityQuintalsRemaining: 0,
+      isFullyBooked: true,
+    },
+    {
+      id: 'slot-04',
+      timeSlot: '01:30 PM - 03:00 PM',
+      farmerCapacityRemaining: 15,
+      quantityCapacityQuintalsRemaining: 220,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-05',
+      timeSlot: '03:00 PM - 04:30 PM',
+      farmerCapacityRemaining: 8,
+      quantityCapacityQuintalsRemaining: 110,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-06',
+      timeSlot: '04:30 PM - 06:00 PM',
+      farmerCapacityRemaining: 20,
+      quantityCapacityQuintalsRemaining: 300,
+      isFullyBooked: false,
+    },
+  ],
+  'centre-002': [
+    {
+      id: 'slot-11',
+      timeSlot: '08:30 AM - 10:00 AM',
+      farmerCapacityRemaining: 6,
+      quantityCapacityQuintalsRemaining: 90,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-12',
+      timeSlot: '10:00 AM - 11:30 AM',
+      farmerCapacityRemaining: 0,
+      quantityCapacityQuintalsRemaining: 0,
+      isFullyBooked: true,
+    },
+    {
+      id: 'slot-13',
+      timeSlot: '11:30 AM - 01:00 PM',
+      farmerCapacityRemaining: 2,
+      quantityCapacityQuintalsRemaining: 30,
+      isFullyBooked: false,
+    },
+    {
+      id: 'slot-14',
+      timeSlot: '02:00 PM - 03:30 PM',
+      farmerCapacityRemaining: 10,
+      quantityCapacityQuintalsRemaining: 150,
+      isFullyBooked: false,
+    },
+  ],
+};
+
+export const MOCK_BOOKINGS: MockBooking[] = [
+  {
+    id: 'bkg-101',
+    bookingNumber: 'KM-2026-09-8821',
+    farmerName: 'Ramesh Patel',
+    farmerPhone: '+91 98765 43210',
+    centreName: 'Karnal Grain Mandi Main Procurement Centre',
+    cropType: 'Wheat (Grade A)',
+    quantityKg: 25000, // 250 Quintals
+    slotDate: 'Tomorrow',
+    slotTime: '10:30 AM - 12:30 PM',
+    status: 'CONFIRMED',
+    tokenNumber: 'A-042',
+  },
+  {
+    id: 'bkg-102',
+    bookingNumber: 'KM-2026-09-8844',
+    farmerName: 'Ramesh Patel',
+    farmerPhone: '+91 98765 43210',
+    centreName: 'Ambala Cantt Yard',
+    cropType: 'Paddy (Basmati)',
+    quantityKg: 3000,
+    slotDate: '2026-09-18',
+    slotTime: '11:00 AM - 01:00 PM',
+    status: 'PENDING',
+  },
+];
+
+export const MOCK_FARMER_PROFILE: MockFarmerProfile = {
+  id: 'usr-farmer-001',
+  farmerCode: 'FARMER-2026-9041',
+  fullName: 'Ramesh Patel',
+  phone: '+91 98765 43210',
+  email: 'ramesh.patel@agri.in',
+  district: 'Karnal',
+  state: 'Haryana',
+  village: 'Kunjpura',
+  pincode: '132001',
+  landSizeAcres: 12.5,
+  address: 'H.No 45, Near Grain Market Road, Kunjpura',
+  bankName: 'State Bank of India',
+  bankAccountMasked: 'XXXX XXXX 4821',
+  ifscCode: 'SBIN0001320',
+  isDbtVerified: true,
+};
+
+export const MOCK_QUEUE_STATUS = {
+  isCheckedIn: true,
+  tokenNumber: 'A-042',
+  farmersAhead: 5,
+  estimatedWaitMinutes: 35,
+  serviceCounter: 2,
+  status: 'WAITING' as const,
+};
+
+export const MOCK_PAYMENT_SUMMARY = {
+  procurementAmount: '₹ 5,68,750',
+  status: 'PROCESSING' as const,
+  dbtReference: 'DBT-2026-99120',
+};
+
+export const MOCK_RECENT_ACTIVITIES: MockActivity[] = [
+  {
+    id: 'act-1',
+    title: 'Procurement Slot Confirmed for Wheat (250 Qtl)',
+    timestamp: 'Today, 10:30 AM',
+    type: 'booking',
+  },
+  {
+    id: 'act-2',
+    title: 'Checked in at Karnal Mandi Gate',
+    timestamp: 'Yesterday, 09:55 AM',
+    type: 'queue',
+  },
+  {
+    id: 'act-3',
+    title: 'Smart Slot Recommended by System',
+    timestamp: '10 Sep 2026, 06:20 PM',
+    type: 'procurement',
+  },
+];
