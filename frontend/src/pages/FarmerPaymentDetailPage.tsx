@@ -13,10 +13,12 @@ import {
   Calendar,
   Info,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerPaymentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [activePaymentId, setActivePaymentId] = useState<string>(id || 'pay-001');
 
@@ -60,7 +62,7 @@ export const FarmerPaymentDetailPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-                  Payment Details
+                  {t('farmer.dashboard.payments')} - Details
                 </h1>
                 <Badge variant="forest" size="sm" className="font-mono">
                   {payment.id}

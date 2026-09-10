@@ -9,6 +9,8 @@ import type { UserRole } from '../../types';
 import { Menu, Bell, LogOut, User } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
 
+import { useLanguage } from '../../i18n/LanguageContext';
+import { LanguageSelector } from '../common/LanguageSelector';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
 
 export interface NavbarProps {
@@ -28,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   className,
 }) => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const roleBadges: Record<UserRole, { label: string; variant: 'forest' | 'amber' | 'info' | 'warning' }> = {
     FARMER: { label: 'Farmer Portal', variant: 'forest' },
@@ -63,51 +66,58 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center: Quick navigation links for Desktop */}
-        <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-600">
-          <button
-            type="button"
-            onClick={() => navigate('/farmer/dashboard')}
-            className="hover:text-forest-800 transition-colors py-4"
-          >
-            Dashboard
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/farmer/request')}
-            className="hover:text-forest-800 transition-colors py-4"
-          >
-            My Requests
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/farmer/centres')}
-            className="hover:text-forest-800 transition-colors py-4"
-          >
-            Centres
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/farmer/notifications')}
-            className="hover:text-forest-800 transition-colors py-4 flex items-center gap-1.5"
-          >
-            Notifications
-            {unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/farmer/profile')}
-            className="hover:text-forest-800 transition-colors py-4"
-          >
-            Profile
-          </button>
-        </nav>
+        {role === 'FARMER' ? (
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-600">
+            <button
+              type="button"
+              onClick={() => navigate('/farmer/dashboard')}
+              className="hover:text-forest-800 transition-colors py-4"
+            >
+              {t('nav.dashboard', 'Dashboard')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/farmer/request')}
+              className="hover:text-forest-800 transition-colors py-4"
+            >
+              {t('nav.myRequests', 'Sell Your Crop')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/farmer/centres')}
+              className="hover:text-forest-800 transition-colors py-4"
+            >
+              {t('nav.centres', 'Procurement Centres')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/farmer/notifications')}
+              className="hover:text-forest-800 transition-colors py-4 flex items-center gap-1.5"
+            >
+              {t('nav.notifications', 'Notifications')}
+              {unreadCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/farmer/profile')}
+              className="hover:text-forest-800 transition-colors py-4"
+            >
+              {t('nav.profile', 'Profile')}
+            </button>
+          </nav>
+        ) : (
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-600" />
+        )}
 
-        {/* Right: Notifications, User Profile */}
+        {/* Right: Notifications, Language Selector, User Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Selector for Farmers */}
+          {role === 'FARMER' && <LanguageSelector />}
+
           <div className="relative">
             <IconButton
               icon={<Bell className="h-5 w-5 text-slate-600" />}

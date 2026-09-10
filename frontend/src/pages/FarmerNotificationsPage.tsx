@@ -21,9 +21,11 @@ import {
   Info,
   X,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerNotificationsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
   const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(null);
 
@@ -129,7 +131,7 @@ export const FarmerNotificationsPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-                  Notifications
+                  {t('farmer.dashboard.notifications')}
                 </h1>
                 {unreadCount > 0 ? (
                   <Badge variant="amber" size="sm" className="font-mono">

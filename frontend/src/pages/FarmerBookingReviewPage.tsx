@@ -15,10 +15,12 @@ import {
   Scale,
   Sparkles,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerBookingReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
 
   // Location state or fallback to default mock recommendation
   const locationState = location.state as {
@@ -75,7 +77,7 @@ export const FarmerBookingReviewPage: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-              Review Booking
+              {t('farmer.booking.chooseDate')} - Review
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               Verify produce, procurement centre, and arrival time before confirming.

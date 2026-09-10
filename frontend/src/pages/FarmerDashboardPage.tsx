@@ -22,8 +22,11 @@ import {
   Building2,
 } from 'lucide-react';
 
+import { useLanguage } from '../i18n/LanguageContext';
+
 export const FarmerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [hasBooking, setHasBooking] = useState(true); // Toggleable for testing empty state
   const activeBooking = MOCK_BOOKINGS[0];
 
@@ -34,10 +37,10 @@ export const FarmerDashboardPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-heading tracking-tight">
-              Good morning, {MOCK_FARMER_PROFILE.fullName}
+              {t('farmer.dashboard.welcome', 'Welcome Back')}, {MOCK_FARMER_PROFILE.fullName}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Here's the status of your crop procurement journey.
+              {t('farmer.dashboard.subtitle', "Track your MSP produce sales, queue token, and direct DBT payments.")}
             </p>
           </div>
 
@@ -48,7 +51,7 @@ export const FarmerDashboardPage: React.FC = () => {
               leftIcon={<Plus className="h-4 w-4" />}
               onClick={() => navigate('/farmer/request/new')}
             >
-              New Procurement Request
+              {t('farmer.dashboard.sellCropCTA', 'Sell Your Crop')}
             </Button>
             {/* Developer state toggle button */}
             <Button
@@ -142,13 +145,15 @@ export const FarmerDashboardPage: React.FC = () => {
         {/* 3. LIVE QUEUE & PROCUREMENT JOURNEY GRID */}
         {hasBooking && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LIVE QUEUE CARD */}
+            {/* YOUR PLACE IN QUEUE CARD */}
             <Card className="lg:col-span-6 bg-white flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-forest-800" />
-                    <h3 className="text-sm font-bold text-slate-900 font-heading">Live Queue Status</h3>
+                    <h3 className="text-sm font-bold text-slate-900 font-heading">
+                      {t('farmer.dashboard.activeQueueTitle', 'Your Place in Queue')}
+                    </h3>
                   </div>
                   <StatusBadge status={MOCK_QUEUE_STATUS.status} size="sm" />
                 </div>
@@ -157,11 +162,15 @@ export const FarmerDashboardPage: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-km font-mono text-xs">
                       <div>
-                        <span className="text-slate-500 block text-[10px] uppercase">Token Number</span>
+                        <span className="text-slate-500 block text-[10px] uppercase">
+                          {t('farmer.dashboard.tokenNumber', 'Token #')}
+                        </span>
                         <span className="text-lg font-bold text-slate-900">{MOCK_QUEUE_STATUS.tokenNumber}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-slate-500 block text-[10px] uppercase">Estimated Wait</span>
+                        <span className="text-slate-500 block text-[10px] uppercase">
+                          {t('farmer.dashboard.approxWait', 'Approx. Waiting Time')}
+                        </span>
                         <span className="text-base font-bold text-forest-800">
                           {MOCK_QUEUE_STATUS.estimatedWaitMinutes} mins
                         </span>
@@ -170,14 +179,18 @@ export const FarmerDashboardPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
-                        <span className="text-slate-500 text-[11px]">Farmers Ahead</span>
+                        <span className="text-slate-500 text-[11px]">
+                          {t('farmer.dashboard.farmersAhead', 'Farmers Ahead')}
+                        </span>
                         <span className="block text-base font-bold text-slate-900 mt-0.5">
                           {MOCK_QUEUE_STATUS.farmersAhead} Farmers
                         </span>
                       </div>
 
                       <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
-                        <span className="text-slate-500 text-[11px]">Service Counter</span>
+                        <span className="text-slate-500 text-[11px]">
+                          {t('farmer.queue.counter', 'Counter Number')}
+                        </span>
                         <span className="block text-base font-bold text-slate-900 mt-0.5">
                           Counter #{MOCK_QUEUE_STATUS.serviceCounter}
                         </span>
@@ -199,7 +212,7 @@ export const FarmerDashboardPage: React.FC = () => {
                   rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
                   onClick={() => navigate('/farmer/queue/bkg-101')}
                 >
-                  View Live Queue Tracker
+                  {t('farmer.dashboard.viewTracker', 'View Queue Tracker')}
                 </Button>
               </div>
             </Card>

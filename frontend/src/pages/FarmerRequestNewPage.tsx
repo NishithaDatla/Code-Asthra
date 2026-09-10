@@ -17,11 +17,13 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 type Step = 'form' | 'review' | 'success';
 
 export const FarmerRequestNewPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [step, setStep] = useState<Step>('form');
   const [selectedCropId, setSelectedCropId] = useState<string>('');
@@ -57,7 +59,6 @@ export const FarmerRequestNewPage: React.FC = () => {
   };
 
   const handleSubmitRequest = () => {
-    // Frontend mock submit
     const mockId = `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     setCreatedRequestId(mockId);
     setStep('success');
@@ -81,7 +82,7 @@ export const FarmerRequestNewPage: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-              {step === 'success' ? 'Request Submitted' : 'New Procurement Request'}
+              {step === 'success' ? 'Request Submitted' : t('farmer.request.sellCrop')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               {step === 'form' && 'Enter crop & estimated produce for smart centre allocation.'}

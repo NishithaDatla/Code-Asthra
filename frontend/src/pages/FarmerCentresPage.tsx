@@ -8,8 +8,11 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { MOCK_CENTRES } from '../data/mockData';
 import { Building2, MapPin, Clock, ChevronRight, Search } from 'lucide-react';
 
+import { useLanguage } from '../i18n/LanguageContext';
+
 export const FarmerCentresPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -36,10 +39,10 @@ export const FarmerCentresPage: React.FC = () => {
         {/* Page Header */}
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Procurement Centres
+            {t('farmer.centre.title', 'Procurement Centres')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Discover nearby government procurement yards, operational status, and capacity.
+            {t('farmer.centre.subtitle', 'Find nearby government purchasing yards, operating hours, and availability.')}
           </p>
         </div>
 

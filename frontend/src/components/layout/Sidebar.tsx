@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { KisanMargLogo } from '../common/KisanMargLogo';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
 
 export interface SidebarProps {
@@ -39,20 +40,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const currentPath = activePath || location.pathname;
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
 
   const farmerLinks: SidebarLink[] = [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, path: '/farmer/dashboard' },
-    { label: 'My Requests', icon: <PackageCheck className="h-4 w-4" />, path: '/farmer/request' },
-    { label: 'Procurement Centres', icon: <Building2 className="h-4 w-4" />, path: '/farmer/centres' },
+    { label: t('nav.dashboard', 'Dashboard'), icon: <LayoutDashboard className="h-4 w-4" />, path: '/farmer/dashboard' },
+    { label: t('nav.myRequests', 'Sell Your Crop'), icon: <PackageCheck className="h-4 w-4" />, path: '/farmer/request' },
+    { label: t('nav.centres', 'Procurement Centres'), icon: <Building2 className="h-4 w-4" />, path: '/farmer/centres' },
     {
-      label: 'Notifications',
+      label: t('nav.notifications', 'Notifications'),
       icon: <Bell className="h-4 w-4" />,
       path: '/farmer/notifications',
       badge: unreadCount > 0 ? String(unreadCount) : undefined,
     },
-    { label: 'Profile', icon: <User className="h-4 w-4" />, path: '/farmer/profile' },
+    { label: t('nav.profile', 'Profile'), icon: <User className="h-4 w-4" />, path: '/farmer/profile' },
   ];
 
   const staffLinks: SidebarLink[] = [
@@ -122,12 +124,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-km text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left"
         >
           <LogOut className="h-4 w-4 text-rose-600" />
-          <span>Logout</span>
+          <span>{role === 'FARMER' ? t('nav.logout', 'Logout') : 'Logout'}</span>
         </button>
 
         <div className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-slate-500">
           <HelpCircle className="h-4 w-4 text-slate-400 shrink-0" />
-          <span>KisanMarg Support</span>
+          <span>{role === 'FARMER' ? t('nav.support', 'KisanMarg Support') : 'KisanMarg Support'}</span>
         </div>
       </div>
     </aside>

@@ -8,8 +8,11 @@ import { Badge } from '../components/ui/Badge';
 import { MOCK_PROCUREMENT_REQUESTS } from '../data/mockData';
 import { Plus, Sprout, Scale, ChevronRight, FileText } from 'lucide-react';
 
+import { useLanguage } from '../i18n/LanguageContext';
+
 export const FarmerRequestsListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING'>('ALL');
 
   const filteredRequests = MOCK_PROCUREMENT_REQUESTS.filter((req) => {
@@ -24,10 +27,10 @@ export const FarmerRequestsListPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-              My Procurement Requests
+              {t('farmer.request.title', 'Sell Your Crop')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              View your crop procurement requests and allocation status.
+              {t('farmer.request.subtitle', 'Submit a request to sell your harvested produce at government MSP.')}
             </p>
           </div>
 
@@ -37,7 +40,7 @@ export const FarmerRequestsListPage: React.FC = () => {
             leftIcon={<Plus className="h-4 w-4" />}
             onClick={() => navigate('/farmer/request/new')}
           >
-            New Request
+            {t('farmer.request.newButton', 'New Crop Sale Request')}
           </Button>
         </div>
 

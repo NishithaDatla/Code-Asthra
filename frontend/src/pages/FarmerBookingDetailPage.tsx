@@ -17,11 +17,13 @@ import {
   MapPin,
   Info,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerBookingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
 
   const locationState = location.state as {
     bookingNumber?: string;
@@ -65,7 +67,7 @@ export const FarmerBookingDetailPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-                  Booking Details
+                  {t('farmer.booking.chooseDate')} Details
                 </h1>
                 <Badge variant="forest" size="sm" className="font-mono">
                   {bookingNumber}

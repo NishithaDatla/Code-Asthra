@@ -18,9 +18,12 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
+import { useLanguage } from '../i18n/LanguageContext';
+
 export const FarmerSchedulePage: React.FC = () => {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // Find request or fallback to first pending request
   const request =
@@ -62,10 +65,10 @@ export const FarmerSchedulePage: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-              Smart Slot Scheduling
+              {t('farmer.schedule.title', 'Choose Your Date & Time')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Find the best arrival time and procurement centre for your crop.
+              {t('farmer.schedule.subtitle', 'Select a recommended date and time slot to avoid long wait times.')}
             </p>
           </div>
         </div>

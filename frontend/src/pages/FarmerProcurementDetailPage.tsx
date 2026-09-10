@@ -20,9 +20,12 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+import { useLanguage } from '../i18n/LanguageContext';
+
 export const FarmerProcurementDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [activeRecordId, setActiveRecordId] = useState<string>(id || 'proc-001');
 
@@ -98,7 +101,7 @@ export const FarmerProcurementDetailPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-                  Procurement Status
+                  {t('farmer.procurement.title', 'Crop Procurement Details')}
                 </h1>
                 <Badge variant="forest" size="sm" className="font-mono">
                   {record.id}

@@ -9,9 +9,11 @@ import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
 import { MOCK_FARMER_PROFILE } from '../data/mockData';
 import { User, MapPin, CreditCard, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // Local state for editable fields
   const [profile, setProfile] = useState({ ...MOCK_FARMER_PROFILE });
@@ -35,10 +37,10 @@ export const FarmerProfilePage: React.FC = () => {
         <div className="pb-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-heading tracking-tight">
-              My Profile
+              {t('farmer.profile.title')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Manage your personal and farming details for MSP procurement.
+              {t('farmer.profile.subtitle')}
             </p>
           </div>
 

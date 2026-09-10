@@ -14,11 +14,13 @@ import {
   QrCode,
   ArrowRight,
 } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const FarmerQueuePage: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
 
   const locationState = location.state as {
     bookingNumber?: string;
@@ -70,11 +72,13 @@ export const FarmerQueuePage: React.FC = () => {
             </Button>
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-                {isCheckedIn ? 'Live Queue Tracker' : 'Centre Arrival Check-In'}
+                {isCheckedIn
+                  ? t('farmer.queue.yourToken')
+                  : 'Centre Arrival Check-In'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                 {isCheckedIn
-                  ? 'Real-time arrival queue updates and counter calling.'
+                  ? 'Live arrival gate sequence and counter allocations.'
                   : 'Check in upon arrival at the procurement yard gate.'}
               </p>
             </div>
@@ -228,31 +232,39 @@ export const FarmerQueuePage: React.FC = () => {
               </Alert>
             )}
 
-            {/* LIVE QUEUE METRICS GRID */}
+            {/* QUEUE METRICS GRID */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
-                <span className="text-slate-500 text-[10px] block uppercase font-mono">Your Position</span>
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">
+                  {t('farmer.queue.position')}
+                </span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
                   #{currentStatus === 'CALLED' ? 1 : existingQueueEntry?.position || 6}
                 </span>
               </div>
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
-                <span className="text-slate-500 text-[10px] block uppercase font-mono">Farmers Ahead</span>
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">
+                  {t('farmer.queue.farmersAhead')}
+                </span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
                   {currentStatus === 'CALLED' ? 0 : farmersAhead}
                 </span>
               </div>
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
-                <span className="text-slate-500 text-[10px] block uppercase font-mono">Estimated Wait</span>
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">
+                  {t('farmer.queue.approxWait')}
+                </span>
                 <span className="text-lg font-bold text-forest-800 font-mono mt-0.5 block">
                   {currentStatus === 'CALLED' ? '0 min' : `~${estimatedWait} min`}
                 </span>
               </div>
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
-                <span className="text-slate-500 text-[10px] block uppercase font-mono">Assigned Counter</span>
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">
+                  Counter
+                </span>
                 <span className="text-lg font-bold text-amber-700 font-mono mt-0.5 block">
                   Counter #{serviceCounter}
                 </span>
