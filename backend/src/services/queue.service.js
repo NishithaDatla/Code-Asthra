@@ -40,6 +40,35 @@ export async function checkInBooking({ bookingId, tokenNumber = null, metadata =
     throw err;
   }
 
+  // Ensure procurement_records entry exists for checked in booking
+  try {
+    const { data: existingPRec } = await supabase
+      .from('procurement_records')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .maybeSingle();
+
+    if (!existingPRec) {
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id, farmer_id, slot:slots(centre_id), procurement_request:procurement_requests(crop_id)')
+        .eq('id', bookingId)
+        .single();
+
+      if (booking) {
+        await supabase.from('procurement_records').insert({
+          booking_id: booking.id,
+          farmer_id: booking.farmer_id,
+          centre_id: booking.slot?.centre_id,
+          crop_id: booking.procurement_request?.crop_id,
+          status: 'CHECKED_IN'
+        });
+      }
+    }
+  } catch (pRecErr) {
+    console.warn('[Queue Service Warning] Failed to ensure procurement record:', pRecErr.message);
+  }
+
   return data;
 }
 

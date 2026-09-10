@@ -11,6 +11,7 @@ import schedulingRoutes from './routes/schedulingRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import queueRoutes from './routes/queueRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import procurementRoutes from './routes/procurementRoutes.js';
 
 const app = express();
 
@@ -64,6 +65,9 @@ app.use('/api/queue', queueRoutes);
 
 // Notification Triggering Routes
 app.use('/api/notifications', notificationRoutes);
+
+// Procurement Processing & Verification Routes
+app.use('/api/procurement', procurementRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
