@@ -6,6 +6,7 @@ import env from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import farmerRoutes from './routes/farmerRoutes.js';
 import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
+import centreRoutes from './routes/centreRoutes.js';
 
 const app = express();
 
@@ -44,6 +45,9 @@ app.use('/api/farmer', farmerRoutes);
 
 // Procurement Request Routes
 app.use('/api/procurement-requests', procurementRequestRoutes);
+
+// Procurement Centre Routes
+app.use('/api/centres', centreRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
