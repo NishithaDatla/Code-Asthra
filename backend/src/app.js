@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import env from './config/env.js';
+import authRoutes from './routes/authRoutes.js';
+import farmerRoutes from './routes/farmerRoutes.js';
 
 const app = express();
 
@@ -32,6 +34,12 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Authentication Routes
+app.use('/api/auth', authRoutes);
+
+// Farmer Routes
+app.use('/api/farmer', farmerRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {

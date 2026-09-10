@@ -17,6 +17,18 @@ export const supabase = createClient(
   }
 );
 
+// Anonymous Supabase client for user auth operations (signInWithPassword)
+export const supabaseAnon = createClient(
+  env.supabaseUrl,
+  env.supabaseAnonKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
+
 /**
  * Read-only internal connectivity verification for Supabase.
  * Checks client readiness and network/auth initialization without creating tables or modifying schema.
