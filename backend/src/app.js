@@ -3,6 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import env from './config/env.js';
+import authRoutes from './routes/authRoutes.js';
+import farmerRoutes from './routes/farmerRoutes.js';
+import procurementRequestRoutes from './routes/procurementRequestRoutes.js';
+import centreRoutes from './routes/centreRoutes.js';
+import schedulingRoutes from './routes/schedulingRoutes.js';
 
 const app = express();
 
@@ -32,6 +37,21 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Authentication Routes
+app.use('/api/auth', authRoutes);
+
+// Farmer Routes
+app.use('/api/farmer', farmerRoutes);
+
+// Procurement Request Routes
+app.use('/api/procurement-requests', procurementRequestRoutes);
+
+// Procurement Centre Routes
+app.use('/api/centres', centreRoutes);
+
+// Smart Scheduling & Recommendation Routes
+app.use('/api/scheduling', schedulingRoutes);
 
 // Minimal error handling middleware
 app.use((err, req, res, next) => {
