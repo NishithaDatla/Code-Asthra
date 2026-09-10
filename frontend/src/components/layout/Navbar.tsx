@@ -9,6 +9,8 @@ import type { UserRole } from '../../types';
 import { Menu, Bell, LogOut, User } from 'lucide-react';
 import { Dropdown } from '../ui/Dropdown';
 
+import { MOCK_NOTIFICATIONS } from '../../data/mockData';
+
 export interface NavbarProps {
   role?: UserRole;
   userName?: string;
@@ -35,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const currentBadge = roleBadges[role];
+  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
 
   return (
     <header className={cn('sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-subtle', className)}>
@@ -84,6 +87,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => navigate('/farmer/notifications')}
+            className="hover:text-forest-800 transition-colors py-4 flex items-center gap-1.5"
+          >
+            Notifications
+            {unreadCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => navigate('/farmer/profile')}
             className="hover:text-forest-800 transition-colors py-4"
           >
@@ -93,11 +108,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right: Notifications, User Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <IconButton
-            icon={<Bell className="h-5 w-5 text-slate-600" />}
-            ariaLabel="Notifications"
-            size="md"
-          />
+          <div className="relative">
+            <IconButton
+              icon={<Bell className="h-5 w-5 text-slate-600" />}
+              ariaLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+              size="md"
+              onClick={() => navigate('/farmer/notifications')}
+            />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-slate-900 text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-white pointer-events-none font-mono shadow-sm">
+                {unreadCount}
+              </span>
+            )}
+          </div>
 
           <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
 

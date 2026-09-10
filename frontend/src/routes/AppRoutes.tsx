@@ -17,6 +17,7 @@ import { FarmerBookingDetailPage } from '../pages/FarmerBookingDetailPage';
 import { FarmerQueuePage } from '../pages/FarmerQueuePage';
 import { FarmerProcurementDetailPage } from '../pages/FarmerProcurementDetailPage';
 import { FarmerPaymentDetailPage } from '../pages/FarmerPaymentDetailPage';
+import { FarmerNotificationsPage } from '../pages/FarmerNotificationsPage';
 import { StaffDashboardPlaceholder } from '../pages/StaffDashboardPlaceholder';
 import { AdminDashboardPlaceholder } from '../pages/AdminDashboardPlaceholder';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
@@ -81,6 +82,9 @@ export const AppRoutes: React.FC = () => {
         {/* Phase 8G Procurement & Payment Status Routes */}
         <Route path="/farmer/procurement/:id" element={<FarmerProcurementDetailPage />} />
         <Route path="/farmer/payment/:id" element={<FarmerPaymentDetailPage />} />
+
+        {/* Phase 8H Notifications Route */}
+        <Route path="/farmer/notifications" element={<FarmerNotificationsPage />} />
 
         {/* Sub-route shortcuts */}
         <Route path="/farmer/procurement" element={<FarmerCentresPage />} />

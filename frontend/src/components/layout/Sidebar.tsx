@@ -11,8 +11,10 @@ import {
   Users,
   HelpCircle,
   LogOut,
+  Bell,
 } from 'lucide-react';
 import { KisanMargLogo } from '../common/KisanMargLogo';
+import { MOCK_NOTIFICATIONS } from '../../data/mockData';
 
 export interface SidebarProps {
   role?: UserRole;
@@ -33,11 +35,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   className,
 }) => {
   const navigate = useNavigate();
+  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
 
   const farmerLinks: SidebarLink[] = [
     { label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, path: '/farmer/dashboard' },
     { label: 'My Requests', icon: <PackageCheck className="h-4 w-4" />, path: '/farmer/request' },
     { label: 'Procurement Centres', icon: <Building2 className="h-4 w-4" />, path: '/farmer/centres' },
+    {
+      label: 'Notifications',
+      icon: <Bell className="h-4 w-4" />,
+      path: '/farmer/notifications',
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+    },
     { label: 'Profile', icon: <User className="h-4 w-4" />, path: '/farmer/profile' },
   ];
 

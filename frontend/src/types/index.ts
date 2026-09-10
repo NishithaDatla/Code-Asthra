@@ -231,3 +231,23 @@ export interface MockActivity {
   timestamp: string;
   type: 'booking' | 'queue' | 'procurement' | 'payment';
 }
+
+export type NotificationType =
+  | 'BOOKING_CONFIRMED'
+  | 'SLOT_REMINDER'
+  | 'QUEUE_CALLED'
+  | 'PROCUREMENT_UPDATED'
+  | 'PAYMENT_PROCESSED'
+  | 'SYSTEM_ALERT';
+
+export interface NotificationItem {
+  id: string;
+  userId?: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  relatedEntityType?: 'booking' | 'queue' | 'procurement' | 'payment';
+  relatedEntityId?: string;
+}

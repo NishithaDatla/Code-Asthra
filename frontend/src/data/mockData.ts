@@ -10,6 +10,7 @@ import type {
   QueueEntry,
   ProcurementRecord,
   PaymentRecord,
+  NotificationItem,
 } from '../types';
 
 export const MOCK_CROPS: Crop[] = [
@@ -514,3 +515,70 @@ export const MOCK_PAYMENT_RECORDS: Record<string, PaymentRecord> = {
     accountMasked: 'XXXX XXXX 4821',
   },
 };
+
+export const MOCK_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 'notif-001',
+    userId: 'usr-farmer-001',
+    type: 'QUEUE_CALLED',
+    title: "You're Called",
+    message: 'Token Q-104: Please proceed immediately to Counter #2 at Karnal Grain Mandi for produce inspection and weighment.',
+    isRead: false,
+    createdAt: '10 min ago',
+    relatedEntityType: 'queue',
+    relatedEntityId: 'bkg-101',
+  },
+  {
+    id: 'notif-002',
+    userId: 'usr-farmer-001',
+    type: 'PROCUREMENT_UPDATED',
+    title: 'Procurement Updated',
+    message: 'Your Wheat procurement (250 Quintals) at Karnal Mandi is currently undergoing Quality Check.',
+    isRead: false,
+    createdAt: '1 hour ago',
+    relatedEntityType: 'procurement',
+    relatedEntityId: 'proc-001',
+  },
+  {
+    id: 'notif-003',
+    userId: 'usr-farmer-001',
+    type: 'PAYMENT_PROCESSED',
+    title: 'Payment Updated',
+    message: 'Disbursement of ₹ 5,68,750 for Wheat procurement is being processed.',
+    isRead: false,
+    createdAt: '3 hours ago',
+    relatedEntityType: 'payment',
+    relatedEntityId: 'pay-001',
+  },
+  {
+    id: 'notif-004',
+    userId: 'usr-farmer-001',
+    type: 'BOOKING_CONFIRMED',
+    title: 'Booking Confirmed',
+    message: 'Your procurement slot (KM-2026-09-8850) has been confirmed for 250 Quintals of Wheat on 2026-09-15.',
+    isRead: true,
+    createdAt: 'Yesterday, 04:30 PM',
+    relatedEntityType: 'booking',
+    relatedEntityId: 'bkg-101',
+  },
+  {
+    id: 'notif-005',
+    userId: 'usr-farmer-001',
+    type: 'SLOT_REMINDER',
+    title: 'Slot Reminder',
+    message: 'Your procurement appointment is scheduled for tomorrow at 08:00 AM at Karnal Mandi. Please bring your QR token.',
+    isRead: true,
+    createdAt: '10 Sep 2026, 06:00 PM',
+    relatedEntityType: 'booking',
+    relatedEntityId: 'bkg-101',
+  },
+  {
+    id: 'notif-006',
+    userId: 'usr-farmer-001',
+    type: 'SYSTEM_ALERT',
+    title: 'Important Update',
+    message: 'Karnal Grain Mandi procurement operations will observe revised gate opening hours from 7:00 AM starting next week.',
+    isRead: true,
+    createdAt: '08 Sep 2026, 09:00 AM',
+  },
+];
