@@ -197,9 +197,29 @@ export const FarmerQueuePage: React.FC = () => {
             )}
 
             {currentStatus === 'COMPLETED' && (
-              <Alert type="success" title="Queue Service Completed">
-                Your produce weighment has been completed at Counter #{serviceCounter}.
-              </Alert>
+              <div className="space-y-3">
+                <Alert type="success" title="Queue Service Completed">
+                  Your produce weighment has been completed at Counter #{serviceCounter}.
+                </Alert>
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-km flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-900 font-heading">
+                      Procurement Processing Active
+                    </h4>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      Check your quality results, weighbridge details, and payment status.
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    onClick={() => navigate('/farmer/procurement/proc-001')}
+                  >
+                    View Procurement
+                  </Button>
+                </div>
+              </div>
             )}
 
             {currentStatus === 'SKIPPED' && (

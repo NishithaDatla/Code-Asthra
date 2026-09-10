@@ -135,6 +135,48 @@ export interface QueueEntry {
   checkedInAt: string;
 }
 
+export type QualityStatus = 'PASSED' | 'FAILED' | 'CONDITIONAL';
+
+export interface QualityCheck {
+  status: QualityStatus;
+  moistureContentPercent?: number;
+  foreignMatterPercent?: number;
+  gradeAssigned?: string;
+  notes?: string;
+}
+
+export interface WeighingResult {
+  grossWeightQuintals: number;
+  tareWeightQuintals: number;
+  netWeightQuintals: number;
+  weighedAt?: string;
+}
+
+export interface ProcurementRecord {
+  id: string;
+  bookingId: string;
+  cropName: string;
+  estimatedQuantityQuintals: number;
+  centreName: string;
+  district: string;
+  status: ProcurementStatus;
+  qualityCheck?: QualityCheck;
+  weighing?: WeighingResult;
+  rejectionReason?: string;
+  completedAt?: string;
+  paymentId?: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  procurementId: string;
+  amountFormatted: string;
+  status: PaymentStatus;
+  dbtReference?: string;
+  paymentDate?: string;
+  accountMasked?: string;
+}
+
 export interface MockCentre {
   id: string;
   name: string;

@@ -240,7 +240,7 @@ export const FarmerDashboardPage: React.FC = () => {
               {/* PAYMENT SUMMARY COMPACT SECTION */}
               <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-slate-500 text-[11px] block">Procurement Value</span>
+                  <span className="text-slate-500 text-[11px] block">Procurement Status & Value</span>
                   <span className="font-extrabold text-slate-900 text-sm font-mono">
                     {MOCK_PAYMENT_SUMMARY.procurementAmount}
                   </span>
@@ -251,9 +251,17 @@ export const FarmerDashboardPage: React.FC = () => {
                     variant="ghost"
                     size="sm"
                     className="text-xs"
-                    onClick={() => navigate('/farmer/payments')}
+                    onClick={() => navigate('/farmer/procurement/proc-001')}
                   >
-                    Details
+                    Procurement
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => navigate('/farmer/payment/pay-001')}
+                  >
+                    Payment
                   </Button>
                 </div>
               </div>

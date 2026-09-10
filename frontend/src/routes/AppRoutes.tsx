@@ -15,6 +15,8 @@ import { FarmerSchedulePage } from '../pages/FarmerSchedulePage';
 import { FarmerBookingReviewPage } from '../pages/FarmerBookingReviewPage';
 import { FarmerBookingDetailPage } from '../pages/FarmerBookingDetailPage';
 import { FarmerQueuePage } from '../pages/FarmerQueuePage';
+import { FarmerProcurementDetailPage } from '../pages/FarmerProcurementDetailPage';
+import { FarmerPaymentDetailPage } from '../pages/FarmerPaymentDetailPage';
 import { StaffDashboardPlaceholder } from '../pages/StaffDashboardPlaceholder';
 import { AdminDashboardPlaceholder } from '../pages/AdminDashboardPlaceholder';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
@@ -76,9 +78,13 @@ export const AppRoutes: React.FC = () => {
         {/* Phase 8F Live Queue Routes */}
         <Route path="/farmer/queue/:bookingId" element={<FarmerQueuePage />} />
 
+        {/* Phase 8G Procurement & Payment Status Routes */}
+        <Route path="/farmer/procurement/:id" element={<FarmerProcurementDetailPage />} />
+        <Route path="/farmer/payment/:id" element={<FarmerPaymentDetailPage />} />
+
         {/* Sub-route shortcuts */}
         <Route path="/farmer/procurement" element={<FarmerCentresPage />} />
-        <Route path="/farmer/payments" element={<FarmerDashboardPage />} />
+        <Route path="/farmer/payments" element={<FarmerPaymentDetailPage />} />
 
         {/* Staff & Admin Placeholder Dashboard Routes */}
         <Route path="/staff/dashboard" element={<StaffDashboardPlaceholder />} />

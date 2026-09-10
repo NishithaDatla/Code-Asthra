@@ -8,6 +8,8 @@ import type {
   AvailabilitySlot,
   SchedulingRecommendation,
   QueueEntry,
+  ProcurementRecord,
+  PaymentRecord,
 } from '../types';
 
 export const MOCK_CROPS: Crop[] = [
@@ -399,3 +401,116 @@ export const MOCK_RECOMMENDATIONS: SchedulingRecommendation[] = [
     isFullyBooked: true,
   },
 ];
+
+export const MOCK_PROCUREMENT_RECORDS: Record<string, ProcurementRecord> = {
+  'proc-001': {
+    id: 'proc-001',
+    bookingId: 'bkg-101',
+    cropName: 'Wheat (Grade A / Kanak)',
+    estimatedQuantityQuintals: 250,
+    centreName: 'Karnal Grain Mandi Main Procurement Centre',
+    district: 'Karnal',
+    status: 'WEIGHING',
+    qualityCheck: {
+      status: 'PASSED',
+      moistureContentPercent: 11.8,
+      foreignMatterPercent: 0.4,
+      gradeAssigned: 'Grade A',
+      notes: 'Grain moisture is well within permissible 12.0% limit. Clean quality.',
+    },
+    weighing: {
+      grossWeightQuintals: 262,
+      tareWeightQuintals: 12,
+      netWeightQuintals: 250,
+      weighedAt: '2026-09-11 10:15 AM',
+    },
+    paymentId: 'pay-001',
+  },
+  'proc-002': {
+    id: 'proc-002',
+    bookingId: 'bkg-102',
+    cropName: 'Paddy (Basmati / Dhan)',
+    estimatedQuantityQuintals: 120,
+    centreName: 'Ambala Cantt Agricultural Procurement Yard',
+    district: 'Ambala',
+    status: 'PROCUREMENT_COMPLETED',
+    qualityCheck: {
+      status: 'PASSED',
+      moistureContentPercent: 12.1,
+      foreignMatterPercent: 0.5,
+      gradeAssigned: 'Grade A',
+    },
+    weighing: {
+      grossWeightQuintals: 128,
+      tareWeightQuintals: 8,
+      netWeightQuintals: 120,
+      weighedAt: '2026-09-10 02:30 PM',
+    },
+    completedAt: '2026-09-10 02:45 PM',
+    paymentId: 'pay-002',
+  },
+  'proc-003': {
+    id: 'proc-003',
+    bookingId: 'bkg-103',
+    cropName: 'Mustard (Sarson)',
+    estimatedQuantityQuintals: 80,
+    centreName: 'Kurukshetra Grain Hub',
+    district: 'Kurukshetra',
+    status: 'REJECTED',
+    qualityCheck: {
+      status: 'FAILED',
+      moistureContentPercent: 16.5,
+      notes: 'Moisture content exceeds 12.0% upper threshold.',
+    },
+    rejectionReason: 'Moisture content (16.5%) exceeds permissible government threshold (max 12.0%).',
+  },
+  'proc-004': {
+    id: 'proc-004',
+    bookingId: 'bkg-104',
+    cropName: 'Gram (Chana)',
+    estimatedQuantityQuintals: 150,
+    centreName: 'Sangrur Main Grain Market Centre',
+    district: 'Sangrur',
+    status: 'QUALITY_CHECK',
+    qualityCheck: {
+      status: 'CONDITIONAL',
+      moistureContentPercent: 13.2,
+      notes: 'Slightly elevated moisture (13.2%). Sun-drying advised prior to final weighment.',
+    },
+  },
+};
+
+export const MOCK_PAYMENT_RECORDS: Record<string, PaymentRecord> = {
+  'pay-001': {
+    id: 'pay-001',
+    procurementId: 'proc-001',
+    amountFormatted: '₹ 5,68,750',
+    status: 'PROCESSING',
+    dbtReference: 'DBT-2026-99120',
+    paymentDate: '2026-09-11',
+    accountMasked: 'XXXX XXXX 4821',
+  },
+  'pay-002': {
+    id: 'pay-002',
+    procurementId: 'proc-002',
+    amountFormatted: '₹ 2,64,360',
+    status: 'COMPLETED',
+    dbtReference: 'DBT-2026-98441',
+    paymentDate: '2026-09-10',
+    accountMasked: 'XXXX XXXX 4821',
+  },
+  'pay-003': {
+    id: 'pay-003',
+    procurementId: 'proc-004',
+    amountFormatted: '₹ 3,41,250',
+    status: 'PENDING',
+    accountMasked: 'XXXX XXXX 4821',
+  },
+  'pay-004': {
+    id: 'pay-004',
+    procurementId: 'proc-003',
+    amountFormatted: '₹ 1,81,600',
+    status: 'FAILED',
+    accountMasked: 'XXXX XXXX 4821',
+  },
+};
