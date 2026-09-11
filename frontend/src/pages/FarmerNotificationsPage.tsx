@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FarmerLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { MOCK_NOTIFICATIONS } from '../data/mockData';
-import type { NotificationItem, NotificationType } from '../types';
+import { Alert } from '../components/ui/Alert';
 import {
   ArrowLeft,
   Bell,
@@ -16,70 +15,103 @@ import {
   CreditCard,
   AlertTriangle,
   CheckCheck,
-  ChevronRight,
   BellOff,
-  Info,
+  RefreshCw,
   X,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { notificationApi } from '../services/notificationApi';
+import type { BackendNotification, NotificationTypeBackend } from '../services/notificationApi';
+import { ApiError } from '../services/apiClient';
 
 export const FarmerNotificationsPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
-  const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(null);
+  const { token } = useAuth();
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const [notifications, setNotifications] = useState<BackendNotification[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [pendingReadIds, setPendingReadIds] = useState<Set<string>>(new Set());
+  const [selectedNotif, setSelectedNotif] = useState<BackendNotification | null>(null);
 
-  const handleMarkAsRead = (id: string, e?: React.MouseEvent) => {
+  const fetchNotifications = useCallback(async () => {
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await notificationApi.getNotifications(token);
+      if (res.success && res.data) {
+        setNotifications(res.data);
+      } else {
+        setErrorMsg(res.message || 'Failed to retrieve notifications.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Failed to fetch notifications.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('An unexpected error occurred while fetching notifications.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+    if (!token || pendingReadIds.has(id)) return;
+
+    setPendingReadIds((prev) => new Set(prev).add(id));
+
+    try {
+      const res = await notificationApi.markNotificationRead(token, id);
+      if (res.success && res.data) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, is_read: true, read_at: res.data.read_at } : n))
+        );
+      }
+    } catch (err: unknown) {
+      console.warn('[Mark Read Error]:', err);
+    } finally {
+      setPendingReadIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const handleMarkAllAsRead = async () => {
+    if (!token) return;
+
+    const unreadItems = notifications.filter((n) => !n.is_read);
+    for (const item of unreadItems) {
+      await handleMarkAsRead(item.id);
+    }
   };
 
-  const handleSelectNotification = (notif: NotificationItem) => {
-    // Mark as read when selected
-    if (!notif.isRead) {
+  const handleSelectNotification = (notif: BackendNotification) => {
+    if (!notif.is_read) {
       handleMarkAsRead(notif.id);
     }
     setSelectedNotif(notif);
   };
 
-  const handleNavigateToRelated = (notif: NotificationItem, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-
-    // Mark as read
-    if (!notif.isRead) {
-      handleMarkAsRead(notif.id);
-    }
-
-    // Close modal if open
-    setSelectedNotif(null);
-
-    switch (notif.relatedEntityType) {
-      case 'booking':
-        navigate(`/farmer/booking/${notif.relatedEntityId || 'bkg-101'}`);
-        break;
-      case 'queue':
-        navigate(`/farmer/queue/${notif.relatedEntityId || 'bkg-101'}`);
-        break;
-      case 'procurement':
-        navigate(`/farmer/procurement/${notif.relatedEntityId || 'proc-001'}`);
-        break;
-      case 'payment':
-        navigate(`/farmer/payment/${notif.relatedEntityId || 'pay-001'}`);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const getTypeIcon = (type: NotificationType) => {
+  const getTypeIcon = (type: NotificationTypeBackend) => {
     switch (type) {
       case 'BOOKING_CONFIRMED':
         return <CalendarCheck className="h-5 w-5 text-forest-700 shrink-0" />;
@@ -95,22 +127,6 @@ export const FarmerNotificationsPage: React.FC = () => {
         return <AlertTriangle className="h-5 w-5 text-amber-800 shrink-0" />;
       default:
         return <Bell className="h-5 w-5 text-slate-600 shrink-0" />;
-    }
-  };
-
-  const getActionLabel = (type: NotificationType) => {
-    switch (type) {
-      case 'BOOKING_CONFIRMED':
-      case 'SLOT_REMINDER':
-        return 'View Booking';
-      case 'QUEUE_CALLED':
-        return 'View Queue';
-      case 'PROCUREMENT_UPDATED':
-        return 'View Procurement';
-      case 'PAYMENT_PROCESSED':
-        return 'View Payment';
-      default:
-        return null;
     }
   };
 
@@ -162,44 +178,18 @@ export const FarmerNotificationsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Development-Only Demo Controls */}
-        {import.meta.env.DEV && (
-          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-km text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-subtle">
-            <span className="text-amber-900 font-mono text-[11px] font-bold">
-              [Demo Controls — Development Only]
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  setNotifications((prev) =>
-                    prev.map((n) => ({ ...n, isRead: false }))
-                  )
-                }
-                className="px-2.5 py-1 rounded text-[11px] font-bold bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors"
-              >
-                Set All Unread
-              </button>
-              <button
-                type="button"
-                onClick={handleMarkAllAsRead}
-                className="px-2.5 py-1 rounded text-[11px] font-bold bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors"
-              >
-                Set All Read
-              </button>
-              <button
-                type="button"
-                onClick={() => setNotifications(MOCK_NOTIFICATIONS)}
-                className="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-800 text-white hover:bg-amber-900 transition-colors"
-              >
-                Reset Default Mock Data
-              </button>
-            </div>
-          </div>
+        {errorMsg && (
+          <Alert type="danger" onClose={() => setErrorMsg('')}>
+            {errorMsg}
+          </Alert>
         )}
 
-        {/* Notifications Chronological List */}
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="py-12 text-center">
+            <RefreshCw className="h-6 w-6 text-forest-700 animate-spin mx-auto mb-2" />
+            <p className="text-xs font-mono text-slate-500">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
           /* EMPTY STATE */
           <Card className="bg-white border-slate-200 text-center p-8 sm:p-12 flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
@@ -215,16 +205,17 @@ export const FarmerNotificationsPage: React.FC = () => {
             </div>
           </Card>
         ) : (
+          /* NOTIFICATIONS LIST */
           <div className="space-y-3">
             {notifications.map((notif) => {
-              const actionLabel = getActionLabel(notif.type);
+              const isPendingRead = pendingReadIds.has(notif.id);
 
               return (
                 <div
                   key={notif.id}
                   onClick={() => handleSelectNotification(notif)}
                   className={`p-4 sm:p-5 rounded-km border transition-all cursor-pointer relative overflow-hidden ${
-                    !notif.isRead
+                    !notif.is_read
                       ? 'bg-white border-forest-300 border-l-4 border-l-forest-700 shadow-subtle'
                       : 'bg-white/80 border-slate-200 opacity-90 hover:bg-white'
                   }`}
@@ -232,7 +223,11 @@ export const FarmerNotificationsPage: React.FC = () => {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3.5 min-w-0">
                       {/* Icon */}
-                      <div className={`p-2.5 rounded-km shrink-0 ${!notif.isRead ? 'bg-forest-50 border border-forest-100' : 'bg-slate-100'}`}>
+                      <div
+                        className={`p-2.5 rounded-km shrink-0 ${
+                          !notif.is_read ? 'bg-forest-50 border border-forest-100' : 'bg-slate-100'
+                        }`}
+                      >
                         {getTypeIcon(notif.type)}
                       </div>
 
@@ -241,57 +236,48 @@ export const FarmerNotificationsPage: React.FC = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3
                             className={`text-sm font-heading ${
-                              !notif.isRead
+                              !notif.is_read
                                 ? 'font-extrabold text-slate-900'
                                 : 'font-semibold text-slate-700'
                             }`}
                           >
                             {notif.title}
                           </h3>
-                          {!notif.isRead && (
+                          {!notif.is_read && (
                             <span className="w-2 h-2 rounded-full bg-forest-600 shrink-0" title="Unread" />
                           )}
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {notif.message}
-                        </p>
+                        <p className="text-xs text-slate-600 leading-relaxed">{notif.message}</p>
 
                         <div className="pt-1 flex items-center gap-3 text-[11px] text-slate-400 font-mono">
-                          <span>{notif.createdAt}</span>
+                          <span>{new Date(notif.created_at).toLocaleString()}</span>
                           <span>•</span>
                           <span className="uppercase text-[10px] tracking-wider font-bold">
-                            {notif.type.replace('_', ' ')}
+                            {notif.type.replace(/_/g, ' ')}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 shrink-0 self-center">
-                      {actionLabel && notif.relatedEntityType && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
-                          onClick={(e) => handleNavigateToRelated(notif, e)}
-                          className="text-xs font-semibold text-forest-800 hover:bg-forest-5 text-nowrap"
-                        >
-                          {actionLabel}
-                        </Button>
-                      )}
-
-                      {!notif.isRead && (
+                    {/* Mark Read Action */}
+                    {!notif.is_read && (
+                      <div className="flex items-center gap-2 shrink-0 self-center">
                         <button
                           type="button"
+                          disabled={isPendingRead}
                           onClick={(e) => handleMarkAsRead(notif.id, e)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
                           title="Mark as read"
                         >
-                          <CheckCheck className="h-4 w-4" />
+                          {isPendingRead ? (
+                            <RefreshCw className="h-4 w-4 animate-spin text-forest-700" />
+                          ) : (
+                            <CheckCheck className="h-4 w-4" />
+                          )}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -320,7 +306,7 @@ export const FarmerNotificationsPage: React.FC = () => {
                     {selectedNotif.title}
                   </h3>
                   <span className="text-xs text-slate-400 font-mono">
-                    {selectedNotif.createdAt}
+                    {new Date(selectedNotif.created_at).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -329,33 +315,12 @@ export const FarmerNotificationsPage: React.FC = () => {
                 <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-km border border-slate-200">
                   {selectedNotif.message}
                 </p>
-
-                <div className="p-3 bg-slate-100/70 border border-slate-200 rounded-km text-xs text-slate-500 flex items-center gap-2">
-                  <Info className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span>
-                    This notification record is maintained via local mock state.
-                  </span>
-                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedNotif(null)}
-                >
+                <Button variant="outline" size="sm" onClick={() => setSelectedNotif(null)}>
                   Close
                 </Button>
-                {selectedNotif.relatedEntityType && getActionLabel(selectedNotif.type) && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    rightIcon={<ChevronRight className="h-4 w-4" />}
-                    onClick={() => handleNavigateToRelated(selectedNotif)}
-                  >
-                    {getActionLabel(selectedNotif.type)}
-                  </Button>
-                )}
               </div>
             </Card>
           </div>

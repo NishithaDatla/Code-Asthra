@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { KisanMargLogo } from '../common/KisanMargLogo';
@@ -11,8 +11,8 @@ import { Dropdown } from '../ui/Dropdown';
 
 import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageSelector } from '../common/LanguageSelector';
-import { MOCK_NOTIFICATIONS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
+import { notificationApi } from '../../services/notificationApi';
 
 export interface NavbarProps {
   role?: UserRole;
@@ -32,11 +32,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const activeRole: UserRole = user?.role ? (user.role as UserRole) : role;
   const displayName = user?.full_name || userName;
   const displayPhone = user?.phone_number ? `+91 ${user.phone_number.replace(/^\+91/, '')}` : userPhone;
+
+  useEffect(() => {
+    if (!token) {
+      setUnreadCount(0);
+      return;
+    }
+    let isMounted = true;
+    notificationApi
+      .getNotifications(token)
+      .then((res) => {
+        if (isMounted && res.success && Array.isArray(res.data)) {
+          const count = res.data.filter((n) => !n.is_read).length;
+          setUnreadCount(count);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setUnreadCount(0);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const roleBadges: Record<UserRole, { label: string; variant: 'forest' | 'amber' | 'info' | 'warning' }> = {
     FARMER: { label: 'Farmer Portal', variant: 'forest' },
@@ -46,7 +70,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const currentBadge = roleBadges[activeRole] || roleBadges.FARMER;
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
 
   const handleLogout = async () => {
     await logout();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import type { UserRole } from '../../types';
@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { KisanMargLogo } from '../common/KisanMargLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
-import { MOCK_NOTIFICATIONS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
+import { notificationApi } from '../../services/notificationApi';
 
 export interface SidebarProps {
   role?: UserRole;
@@ -42,9 +42,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
-  const { logout } = useAuth();
+  const { token, logout } = useAuth();
   const currentPath = activePath || location.pathname;
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!token) {
+      setUnreadCount(0);
+      return;
+    }
+    let isMounted = true;
+    notificationApi
+      .getNotifications(token)
+      .then((res) => {
+        if (isMounted && res.success && Array.isArray(res.data)) {
+          const count = res.data.filter((n) => !n.is_read).length;
+          setUnreadCount(count);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setUnreadCount(0);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const handleLogout = async () => {
     await logout();
