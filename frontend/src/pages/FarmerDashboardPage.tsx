@@ -23,10 +23,12 @@ import {
 } from 'lucide-react';
 
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export const FarmerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [hasBooking, setHasBooking] = useState(true); // Toggleable for testing empty state
   const activeBooking = MOCK_BOOKINGS[0];
 
@@ -37,7 +39,7 @@ export const FarmerDashboardPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-heading tracking-tight">
-              {t('farmer.dashboard.welcome', 'Welcome Back')}, {MOCK_FARMER_PROFILE.fullName}
+              {t('farmer.dashboard.welcome', 'Welcome Back')}, {user?.full_name || MOCK_FARMER_PROFILE.fullName}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               {t('farmer.dashboard.subtitle', "Track your MSP produce sales, queue token, and direct DBT payments.")}

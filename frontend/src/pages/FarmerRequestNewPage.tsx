@@ -8,8 +8,6 @@ import { Select } from '../components/ui/Select';
 import { Textarea } from '../components/ui/Textarea';
 import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
-import { MOCK_CROPS } from '../data/mockData';
-import type { Crop } from '../types';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -18,12 +16,45 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { procurementRequestApi } from '../services/procurementRequestApi';
+import type { ProcurementRequestBackend } from '../services/procurementRequestApi';
+import { ApiError } from '../services/apiClient';
 
 type Step = 'form' | 'review' | 'success';
+
+// Active procurement crops configured in backend Supabase crops table
+const ACTIVE_CROPS_LIST = [
+  {
+    id: 'ac02e931-8c51-4432-b07a-4dda32ecb369',
+    name: 'Wheat (Grade A / Kanak)',
+    category: 'Cereals',
+    msp_per_quintal: 2275,
+  },
+  {
+    id: '03cab4ec-4a30-4c4b-af76-df238aa39e9a',
+    name: 'Paddy (Basmati / Dhan)',
+    category: 'Grain',
+    msp_per_quintal: 2200,
+  },
+  {
+    id: '08b97f6b-d3dc-4d7f-b582-f3d8a637ec9b',
+    name: 'Mustard / Oilseeds (Sarson)',
+    category: 'Oilseeds',
+    msp_per_quintal: 5650,
+  },
+  {
+    id: 'e64719e1-0030-4940-a92d-4d293c0802e3',
+    name: 'Gram / Pulses (Chana)',
+    category: 'Pulses',
+    msp_per_quintal: 5440,
+  },
+];
 
 export const FarmerRequestNewPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { token } = useAuth();
 
   const [step, setStep] = useState<Step>('form');
   const [selectedCropId, setSelectedCropId] = useState<string>('');
@@ -31,9 +62,11 @@ export const FarmerRequestNewPage: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
 
   const [errors, setErrors] = useState<{ cropId?: string; quantity?: string }>({});
-  const [createdRequestId, setCreatedRequestId] = useState<string>('');
+  const [apiError, setApiError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [createdRequest, setCreatedRequest] = useState<ProcurementRequestBackend | null>(null);
 
-  const selectedCrop: Crop | undefined = MOCK_CROPS.find((c) => c.id === selectedCropId);
+  const selectedCrop = ACTIVE_CROPS_LIST.find((c) => c.id === selectedCropId);
 
   const validateForm = (): boolean => {
     const newErrors: { cropId?: string; quantity?: string } = {};
@@ -53,15 +86,51 @@ export const FarmerRequestNewPage: React.FC = () => {
 
   const handleProceedToReview = (e: React.FormEvent) => {
     e.preventDefault();
+    setApiError('');
     if (validateForm()) {
       setStep('review');
     }
   };
 
-  const handleSubmitRequest = () => {
-    const mockId = `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    setCreatedRequestId(mockId);
-    setStep('success');
+  const handleSubmitRequest = async () => {
+    if (!token) {
+      setApiError('Authentication session expired. Please sign in again.');
+      return;
+    }
+
+    const qty = parseFloat(quantityQuintals);
+    if (isNaN(qty) || qty <= 0) {
+      setApiError('Invalid quantity value.');
+      return;
+    }
+
+    setApiError('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await procurementRequestApi.createRequest(token, {
+        crop_id: selectedCropId,
+        estimated_quantity_quintals: qty,
+        notes: notes.trim() || null,
+      });
+
+      if (res.success && res.data) {
+        setCreatedRequest(res.data);
+        setStep('success');
+      } else {
+        setApiError(res.message || 'Failed to create procurement request.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setApiError(err.message || 'Failed to submit procurement request.');
+      } else if (err instanceof Error) {
+        setApiError(err.message);
+      } else {
+        setApiError('An unknown error occurred while submitting request.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -82,7 +151,7 @@ export const FarmerRequestNewPage: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
-              {step === 'success' ? 'Request Submitted' : t('farmer.request.sellCrop')}
+              {step === 'success' ? 'Request Submitted' : t('farmer.request.sellCrop', 'Sell Your Harvested Produce')}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
               {step === 'form' && 'Enter crop & estimated produce for smart centre allocation.'}
@@ -91,6 +160,12 @@ export const FarmerRequestNewPage: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {apiError && (
+          <Alert type="danger" onClose={() => setApiError('')}>
+            {apiError}
+          </Alert>
+        )}
 
         {/* Step Indicator Pills */}
         {step !== 'success' && (
@@ -134,9 +209,9 @@ export const FarmerRequestNewPage: React.FC = () => {
                   error={errors.cropId}
                   options={[
                     { value: '', label: '-- Choose Produce / Crop --' },
-                    ...MOCK_CROPS.map((crop) => ({
+                    ...ACTIVE_CROPS_LIST.map((crop) => ({
                       value: crop.id,
-                      label: crop.name,
+                      label: `${crop.name} (MSP ₹${crop.msp_per_quintal}/qtl)`,
                     })),
                   ]}
                   helperText="Choose the crop you intend to sell at the government procurement centre."
@@ -167,7 +242,7 @@ export const FarmerRequestNewPage: React.FC = () => {
               <div>
                 <Textarea
                   label="Additional Notes (Optional)"
-                  placeholder="e.g. Moisture content is below 12%, harvested yesterday from Kunjpura farm."
+                  placeholder="e.g. Moisture content is below 12%, harvested yesterday from farm."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
@@ -202,7 +277,7 @@ export const FarmerRequestNewPage: React.FC = () => {
         {step === 'review' && selectedCrop && (
           <div className="space-y-6">
             <Alert type="info" title="Final Verification">
-              Please review your details carefully before submitting your procurement request.
+              Please review your details carefully before submitting your procurement request to KisanMarg backend.
             </Alert>
 
             <Card className="bg-white border-slate-200 divide-y divide-slate-100">
@@ -215,7 +290,7 @@ export const FarmerRequestNewPage: React.FC = () => {
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-km space-y-1">
                     <span className="text-slate-500 block text-[11px]">Selected Crop</span>
                     <span className="font-bold text-slate-900 text-sm">{selectedCrop.name}</span>
-                    <span className="block text-slate-500 text-[11px]">{selectedCrop.category} • {selectedCrop.grade}</span>
+                    <span className="block text-slate-500 text-[11px]">Category: {selectedCrop.category} • MSP: ₹{selectedCrop.msp_per_quintal}/qtl</span>
                   </div>
 
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-km space-y-1">
@@ -238,6 +313,7 @@ export const FarmerRequestNewPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="md"
+                  disabled={isSubmitting}
                   onClick={() => setStep('form')}
                   leftIcon={<ArrowLeft className="h-4 w-4" />}
                 >
@@ -246,6 +322,7 @@ export const FarmerRequestNewPage: React.FC = () => {
                 <Button
                   variant="primary"
                   size="md"
+                  isLoading={isSubmitting}
                   onClick={handleSubmitRequest}
                   rightIcon={<Sparkles className="h-4 w-4" />}
                 >
@@ -257,7 +334,7 @@ export const FarmerRequestNewPage: React.FC = () => {
         )}
 
         {/* ----------------- STEP 3: SUCCESS ----------------- */}
-        {step === 'success' && selectedCrop && (
+        {step === 'success' && createdRequest && (
           <Card className="bg-white border-slate-200 text-center p-6 sm:p-10 space-y-6">
             <div className="w-16 h-16 rounded-full bg-forest-50 border border-forest-200 flex items-center justify-center text-forest-800 mx-auto shadow-subtle">
               <CheckCircle2 className="h-8 w-8" />
@@ -271,23 +348,31 @@ export const FarmerRequestNewPage: React.FC = () => {
                 Procurement Request Submitted
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Your procurement request has been created. You can check its status from your procurement requests.
+                Your procurement request has been created in KisanMarg system. You can view its real-time status below.
               </p>
             </div>
 
             {/* Request Summary Box */}
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-km max-w-md mx-auto text-left text-xs space-y-2 font-mono">
               <div className="flex justify-between border-b border-slate-200/70 pb-2">
-                <span className="text-slate-500">Request Reference:</span>
-                <span className="font-bold text-slate-900">{createdRequestId}</span>
+                <span className="text-slate-500">Request Number:</span>
+                <span className="font-bold text-slate-900">{createdRequest.request_number}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-200/70 pb-2">
+                <span className="text-slate-500">Status:</span>
+                <span className="font-bold text-forest-800">{createdRequest.status}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200/70 pb-2">
                 <span className="text-slate-500">Crop:</span>
-                <span className="font-bold text-slate-900">{selectedCrop.name}</span>
+                <span className="font-bold text-slate-900">
+                  {createdRequest.crops?.name || selectedCrop?.name || 'Selected Crop'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Estimated Quantity:</span>
-                <span className="font-bold text-forest-800">{quantityQuintals} Quintals</span>
+                <span className="font-bold text-forest-800">
+                  {createdRequest.estimated_quantity_quintals} Quintals
+                </span>
               </div>
             </div>
 
@@ -296,7 +381,7 @@ export const FarmerRequestNewPage: React.FC = () => {
                 variant="primary"
                 size="md"
                 className="w-full sm:w-auto"
-                onClick={() => navigate(`/farmer/request/${createdRequestId}`)}
+                onClick={() => navigate(`/farmer/request/${createdRequest.id}`)}
               >
                 View Request Status
               </Button>
@@ -304,9 +389,9 @@ export const FarmerRequestNewPage: React.FC = () => {
                 variant="outline"
                 size="md"
                 className="w-full sm:w-auto"
-                onClick={() => navigate('/farmer/dashboard')}
+                onClick={() => navigate('/farmer/request')}
               >
-                Back to Dashboard
+                All Procurement Requests
               </Button>
             </div>
           </Card>

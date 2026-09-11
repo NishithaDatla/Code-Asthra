@@ -1,21 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FarmerLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Badge } from '../components/ui/Badge';
-import { MOCK_PROCUREMENT_REQUESTS } from '../data/mockData';
+import { Alert } from '../components/ui/Alert';
 import { Plus, Sprout, Scale, ChevronRight, FileText } from 'lucide-react';
-
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { procurementRequestApi } from '../services/procurementRequestApi';
+import type { ProcurementRequestBackend } from '../services/procurementRequestApi';
+import { ApiError } from '../services/apiClient';
 
 export const FarmerRequestsListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING'>('ALL');
+  const { token } = useAuth();
 
-  const filteredRequests = MOCK_PROCUREMENT_REQUESTS.filter((req) => {
+  const [requests, setRequests] = useState<ProcurementRequestBackend[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+
+  const fetchRequests = useCallback(async () => {
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await procurementRequestApi.listRequests(token);
+      if (res.success && Array.isArray(res.data)) {
+        setRequests(res.data);
+      } else {
+        setErrorMsg(res.message || 'Failed to fetch procurement requests.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Failed to retrieve procurement requests.');
+      } else {
+        setErrorMsg('Unable to connect to server to fetch requests.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const filteredRequests = requests.filter((req) => {
     if (statusFilter === 'ALL') return true;
     return req.status === statusFilter;
   });
@@ -44,15 +83,21 @@ export const FarmerRequestsListPage: React.FC = () => {
           </Button>
         </div>
 
+        {errorMsg && (
+          <Alert type="danger" onClose={() => setErrorMsg('')}>
+            {errorMsg}
+          </Alert>
+        )}
+
         {/* Filter Pills */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 text-xs font-semibold">
-          <span className="text-slate-400 mr-2">Filter:</span>
-          {(['ALL', 'CONFIRMED', 'PENDING'] as const).map((filter) => (
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 text-xs font-semibold overflow-x-auto">
+          <span className="text-slate-400 mr-2 shrink-0">Filter:</span>
+          {['ALL', 'SUBMITTED', 'CONFIRMED', 'PENDING', 'COMPLETED', 'CANCELLED'].map((filter) => (
             <button
               key={filter}
               type="button"
               onClick={() => setStatusFilter(filter)}
-              className={`px-3 py-1.5 rounded-full transition-colors ${
+              className={`px-3 py-1.5 rounded-full transition-colors shrink-0 ${
                 statusFilter === filter
                   ? 'bg-forest-800 text-white font-bold'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -63,8 +108,11 @@ export const FarmerRequestsListPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Requests List */}
-        {filteredRequests.length > 0 ? (
+        {isLoading ? (
+          <div className="py-12 text-center text-xs font-mono text-slate-500 animate-pulse">
+            Fetching live procurement requests from KisanMarg server...
+          </div>
+        ) : filteredRequests.length > 0 ? (
           <div className="space-y-4">
             {filteredRequests.map((req) => (
               <Card
@@ -74,29 +122,31 @@ export const FarmerRequestsListPage: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="forest" size="sm" className="font-mono">
-                        {req.id}
+                        {req.request_number || req.id.slice(0, 8)}
                       </Badge>
-                      <StatusBadge status={req.status} size="sm" />
-                      <span className="text-slate-400 text-xs font-mono">• {req.createdAt}</span>
+                      <StatusBadge status={req.status as any} size="sm" />
+                      <span className="text-slate-400 text-xs font-mono">
+                        • {new Date(req.created_at).toLocaleDateString()}
+                      </span>
                     </div>
 
                     <h3 className="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
                       <Sprout className="h-4 w-4 text-forest-700 shrink-0" />
-                      {req.cropName}
+                      {req.crops?.name || 'Crop Produce'}
                     </h3>
 
                     <div className="flex items-center gap-4 text-xs text-slate-600 font-mono">
                       <span className="flex items-center gap-1">
                         <Scale className="h-3.5 w-3.5 text-slate-400" />
-                        <strong>{req.estimatedQuantityQuintals} Quintals</strong>
+                        <strong>{req.estimated_quantity_quintals} Quintals</strong>
                       </span>
                     </div>
 
-                    {req.status === 'CONFIRMED' && req.centreName && (
-                      <p className="text-xs text-slate-500">
-                        Allocated Centre: <strong className="text-slate-700">{req.centreName}</strong>
+                    {req.notes && (
+                      <p className="text-xs text-slate-500 italic line-clamp-1">
+                        "{req.notes}"
                       </p>
                     )}
                   </div>
