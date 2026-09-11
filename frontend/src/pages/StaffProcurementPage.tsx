@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { StaffLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
@@ -7,8 +7,6 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
 import { StepIndicator } from '../components/ui/StepIndicator';
-import { MOCK_PROCUREMENT_RECORDS, MOCK_PAYMENT_RECORDS } from '../data/mockData';
-import type { ProcurementStatus } from '../types';
 import {
   ArrowLeft,
   Building2,
@@ -16,26 +14,196 @@ import {
   Scale,
   CreditCard,
   ShieldCheck,
-  Info,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { procurementApi } from '../services/procurementApi';
+import type { BackendProcurementRecord, ProcurementStatusBackend } from '../services/procurementApi';
+import { ApiError } from '../services/apiClient';
 
 export const StaffProcurementPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  const [activeRecordId, setActiveRecordId] = useState<string>(id || 'proc-001');
+  const [record, setRecord] = useState<BackendProcurementRecord | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [successMsg, setSuccessMsg] = useState<string>('');
 
-  // Find procurement record or fallback
-  const record =
-    MOCK_PROCUREMENT_RECORDS[activeRecordId] ||
-    MOCK_PROCUREMENT_RECORDS['proc-001'];
+  // Form States
+  const [moisture, setMoisture] = useState<string>('12.0');
+  const [foreignMatter, setForeignMatter] = useState<string>('1.0');
+  const [damagedGrains, setDamagedGrains] = useState<string>('2.0');
+  const [qualityRemarks, setQualityRemarks] = useState<string>('');
+  const [isSubmittingQuality, setIsSubmittingQuality] = useState<boolean>(false);
 
-  // Corresponding payment record lookup
-  const paymentRecord = Object.values(MOCK_PAYMENT_RECORDS).find(
-    (p) => p.procurementId === record.id
-  );
+  const [grossWeight, setGrossWeight] = useState<string>('155.0');
+  const [tareWeight, setTareWeight] = useState<string>('5.0');
+  const [isSubmittingWeighing, setIsSubmittingWeighing] = useState<boolean>(false);
 
-  const getCurrentStepIndex = (status: ProcurementStatus): number => {
+  const [completionNotes, setCompletionNotes] = useState<string>('');
+  const [isSubmittingComplete, setIsSubmittingComplete] = useState<boolean>(false);
+
+  const targetId = id || '';
+
+  const fetchProcurement = useCallback(async () => {
+    if (!targetId || !token) {
+      setIsLoading(false);
+      if (!targetId) setErrorMsg('Procurement record ID missing.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await procurementApi.getProcurementRecord(token, targetId);
+      if (res.success && res.data) {
+        setRecord(res.data);
+      } else {
+        setErrorMsg(res.message || 'Failed to retrieve procurement record.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Procurement record not found or access restricted.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('An unexpected error occurred while fetching procurement details.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [targetId, token]);
+
+  useEffect(() => {
+    fetchProcurement();
+  }, [fetchProcurement]);
+
+  const handleQualitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !targetId) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsSubmittingQuality(true);
+
+    try {
+      const payload = {
+        moisture_content_pct: parseFloat(moisture),
+        foreign_matter_pct: parseFloat(foreignMatter),
+        damaged_grains_pct: parseFloat(damagedGrains),
+        remarks: qualityRemarks ? qualityRemarks.trim() : null,
+      };
+
+      const res = await procurementApi.submitQualityCheck(token, targetId, payload);
+      if (res.success) {
+        setSuccessMsg('Quality check inspection submitted successfully.');
+        await fetchProcurement();
+      } else {
+        setErrorMsg(res.message || 'Quality check submission failed.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Quality check validation failed.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('Unexpected error during quality check submission.');
+      }
+    } finally {
+      setIsSubmittingQuality(false);
+    }
+  };
+
+  const handleWeighingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !targetId) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const gross = parseFloat(grossWeight);
+    const tare = parseFloat(tareWeight);
+
+    if (isNaN(gross) || gross <= 0) {
+      setErrorMsg('Gross weight must be a positive number.');
+      return;
+    }
+    if (isNaN(tare) || tare < 0) {
+      setErrorMsg('Tare weight cannot be negative.');
+      return;
+    }
+    if (gross <= tare) {
+      setErrorMsg('Gross weight must be greater than tare weight.');
+      return;
+    }
+
+    setIsSubmittingWeighing(true);
+
+    try {
+      const payload = {
+        gross_weight_quintals: gross,
+        tare_weight_quintals: tare,
+      };
+
+      const res = await procurementApi.submitWeighing(token, targetId, payload);
+      if (res.success) {
+        setSuccessMsg('Weighbridge measurement recorded successfully. Crop accepted.');
+        await fetchProcurement();
+      } else {
+        setErrorMsg(res.message || 'Weighing submission failed.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Weighing validation failed.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('Unexpected error during weighing submission.');
+      }
+    } finally {
+      setIsSubmittingWeighing(false);
+    }
+  };
+
+  const handleCompleteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !targetId) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+    setIsSubmittingComplete(true);
+
+    try {
+      const payload = {
+        notes: completionNotes ? completionNotes.trim() : null,
+      };
+
+      const res = await procurementApi.completeProcurement(token, targetId, payload);
+      if (res.success) {
+        setSuccessMsg('Procurement batch finalized and payment record created.');
+        await fetchProcurement();
+      } else {
+        setErrorMsg(res.message || 'Procurement completion failed.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Procurement completion failed.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('Unexpected error during procurement completion.');
+      }
+    } finally {
+      setIsSubmittingComplete(false);
+    }
+  };
+
+  const getCurrentStepIndex = (status: ProcurementStatusBackend): number => {
     switch (status) {
       case 'BOOKED':
         return 0;
@@ -57,6 +225,59 @@ export const StaffProcurementPage: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <StaffLayout activeRole="CENTRE_STAFF">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 text-center">
+          <RefreshCw className="h-6 w-6 text-forest-700 animate-spin mx-auto mb-2" />
+          <p className="text-xs font-mono text-slate-500">Loading staff procurement processing desk...</p>
+        </div>
+      </StaffLayout>
+    );
+  }
+
+  if (errorMsg && !record) {
+    return (
+      <StaffLayout activeRole="CENTRE_STAFF">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/staff/dashboard')}
+              className="p-2 -ml-2 text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-bold font-heading text-slate-900">
+              Procurement Desk Error
+            </h1>
+          </div>
+
+          <Alert type="danger" title="Access Error">
+            {errorMsg}
+          </Alert>
+
+          <Button variant="outline" size="md" onClick={() => navigate('/staff/dashboard')}>
+            Back to Staff Dashboard
+          </Button>
+        </div>
+      </StaffLayout>
+    );
+  }
+
+  const rec = record!;
+  const cropName = rec.crop?.name || 'Crop Produce';
+  const centreName = rec.centre?.name || 'Procurement Centre';
+  const bookingRef = rec.booking?.booking_reference || `BKG-${rec.booking_id?.slice(0, 8)}`;
+  const farmerCode = rec.farmer?.farmer_code || `FARMER-${rec.farmer_id?.slice(0, 6)}`;
+  const qualityCheck = rec.quality_check;
+  const payment = rec.payment;
+
+  const canPerformQuality = rec.status === 'CHECKED_IN' || rec.status === 'VERIFICATION';
+  const canPerformWeighing = rec.status === 'QUALITY_CHECK' || rec.status === 'WEIGHING';
+  const canComplete = rec.status === 'ACCEPTED';
+
   return (
     <StaffLayout activeRole="CENTRE_STAFF">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
@@ -77,86 +298,74 @@ export const StaffProcurementPage: React.FC = () => {
                   Procurement Processing Desk
                 </h1>
                 <Badge variant="forest" size="sm" className="font-mono">
-                  {record.id}
+                  {rec.id.slice(0, 8)}
                 </Badge>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 mt-0.5 flex items-center gap-1">
                 <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                {record.centreName}
+                {centreName}
               </p>
             </div>
           </div>
 
-          <StatusBadge status={record.status} size="md" />
+          <StatusBadge status={rec.status as any} size="md" />
         </div>
 
-        {/* Demo State Control Bar */}
-        {import.meta.env.DEV && (
-          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-km text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-subtle">
-            <span className="text-amber-900 font-mono text-[11px] font-bold">
-              [Demo Controls: Switch Staff Procurement Record]
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {Object.keys(MOCK_PROCUREMENT_RECORDS).map((key) => {
-                const rec = MOCK_PROCUREMENT_RECORDS[key];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setActiveRecordId(key)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                      activeRecordId === key
-                        ? 'bg-amber-800 text-white'
-                        : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100'
-                    }`}
-                  >
-                    {rec.id} ({rec.status})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {errorMsg && (
+          <Alert type="danger" onClose={() => setErrorMsg('')}>
+            {errorMsg}
+          </Alert>
+        )}
+
+        {successMsg && (
+          <Alert type="success" onClose={() => setSuccessMsg('')}>
+            {successMsg}
+          </Alert>
         )}
 
         {/* Farmer Summary Card */}
         <Card className="bg-white border-slate-200 p-5 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs">
-            <span className="text-slate-500 font-mono">Booking Ref: KM-2026-09-8850</span>
-            <span className="font-mono font-bold text-slate-900">Farmer Code: FARMER-2026-9041</span>
+            <span className="text-slate-500 font-mono">Booking Ref: {bookingRef}</span>
+            <span className="font-mono font-bold text-slate-900">Farmer Code: {farmerCode}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <span className="text-slate-500 text-[10px] block uppercase font-mono">Farmer Name</span>
-              <span className="font-bold text-slate-900 text-sm">Ramesh Patel</span>
-              <span className="block text-slate-500 font-mono text-[11px]">+91 98765 43210</span>
+              <span className="text-slate-500 text-[10px] block uppercase font-mono">Farmer ID</span>
+              <span className="font-bold text-slate-900 text-sm font-mono">{rec.farmer_id.slice(0, 13)}...</span>
             </div>
 
             <div>
               <span className="text-slate-500 text-[10px] block uppercase font-mono">Produce</span>
               <span className="font-bold text-slate-900 text-sm flex items-center gap-1">
                 <Sprout className="h-4 w-4 text-forest-700" />
-                {record.cropName}
+                {cropName}
               </span>
+              {rec.crop?.msp_per_quintal && (
+                <span className="text-[10px] text-slate-500 font-mono block">
+                  MSP Rate: ₹{rec.crop.msp_per_quintal}/Qtl
+                </span>
+              )}
             </div>
 
             <div>
-              <span className="text-slate-500 text-[10px] block uppercase font-mono">Requested Quantity</span>
+              <span className="text-slate-500 text-[10px] block uppercase font-mono">Recorded Net Quantity</span>
               <span className="font-mono font-bold text-forest-800 text-sm">
-                {record.estimatedQuantityQuintals} Quintals
+                {rec.net_weight_quintals ?? rec.gross_weight_quintals ?? 'Pending Weighment'} Quintals
               </span>
             </div>
           </div>
         </Card>
 
-        {/* 6-Stage Progress Indicator */}
+        {/* 7-Stage Progress Indicator */}
         <Card className="bg-white border-slate-200 p-6 space-y-4">
           <h3 className="text-xs uppercase tracking-wider font-mono font-bold text-slate-500">
             Procurement Lifecycle Sequence
           </h3>
 
           <StepIndicator
-            currentStepIndex={getCurrentStepIndex(record.status)}
+            currentStepIndex={getCurrentStepIndex(rec.status)}
             steps={[
               { id: 1, label: 'Booked' },
               { id: 2, label: 'Checked In' },
@@ -169,103 +378,245 @@ export const StaffProcurementPage: React.FC = () => {
           />
         </Card>
 
-        {/* Quality Check Results */}
-        {record.qualityCheck && (
+        {/* ---------------- ACTION 1: QUALITY CHECK SUBMISSION ---------------- */}
+        {canPerformQuality && (
+          <Card className="bg-white border-amber-300 shadow-card p-6 space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <ShieldCheck className="h-5 w-5 text-amber-700" />
+              <h3 className="text-sm font-bold font-heading text-slate-900">
+                Staff Quality Inspection Form
+              </h3>
+            </div>
+
+            <form onSubmit={handleQualitySubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Moisture Content (%) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    required
+                    value={moisture}
+                    onChange={(e) => setMoisture(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-km font-mono text-slate-900 focus:ring-2 focus:ring-forest-800"
+                  />
+                  <span className="text-[10px] text-slate-400">Pass threshold: ≤ 14.0%</span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Foreign Matter (%) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    required
+                    value={foreignMatter}
+                    onChange={(e) => setForeignMatter(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-km font-mono text-slate-900 focus:ring-2 focus:ring-forest-800"
+                  />
+                  <span className="text-[10px] text-slate-400">Pass threshold: ≤ 2.0%</span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Damaged Grains (%) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    required
+                    value={damagedGrains}
+                    onChange={(e) => setDamagedGrains(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-km font-mono text-slate-900 focus:ring-2 focus:ring-forest-800"
+                  />
+                  <span className="text-[10px] text-slate-400">Pass threshold: ≤ 4.0%</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Inspector Remarks (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fair Average Quality (FAQ) verified"
+                  value={qualityRemarks}
+                  onChange={(e) => setQualityRemarks(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-km text-slate-900 focus:ring-2 focus:ring-forest-800"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isSubmittingQuality}
+                disabled={isSubmittingQuality}
+              >
+                Submit Quality Evaluation
+              </Button>
+            </form>
+          </Card>
+        )}
+
+        {/* Existing Quality Check Display */}
+        {qualityCheck && (
           <Card className="bg-white border-slate-200 p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-forest-800" />
                 <h3 className="text-sm font-bold font-heading text-slate-900">
-                  Quality Check Evaluation (Read-Only)
+                  Recorded Quality Inspection
                 </h3>
               </div>
               <Badge
-                variant={
-                  record.qualityCheck.status === 'PASSED'
-                    ? 'forest'
-                    : record.qualityCheck.status === 'FAILED'
-                    ? 'amber'
-                    : 'warning'
-                }
+                variant={qualityCheck.status === 'PASSED' ? 'forest' : 'danger'}
                 size="sm"
                 className="font-mono"
               >
-                {record.qualityCheck.status}
+                {qualityCheck.status}
               </Badge>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              {record.qualityCheck.moistureContentPercent !== undefined && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase font-mono">Moisture Content</span>
-                  <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block">
-                    {record.qualityCheck.moistureContentPercent}%
-                  </span>
-                  <span className="text-[10px] text-slate-400">Max limit 12.0%</span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">Moisture Content</span>
+                <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block">
+                  {qualityCheck.moisture_content_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit 14.0%</span>
+              </div>
 
-              {record.qualityCheck.foreignMatterPercent !== undefined && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase font-mono">Foreign Matter</span>
-                  <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block">
-                    {record.qualityCheck.foreignMatterPercent}%
-                  </span>
-                  <span className="text-[10px] text-slate-400">Max limit 1.0%</span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">Foreign Matter</span>
+                <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block">
+                  {qualityCheck.foreign_matter_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit 2.0%</span>
+              </div>
 
-              {record.qualityCheck.gradeAssigned && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase font-mono">Assigned Grade</span>
-                  <span className="text-base font-bold text-forest-800 font-mono mt-0.5 block">
-                    {record.qualityCheck.gradeAssigned}
-                  </span>
-                  <span className="text-[10px] text-slate-400">Government Standard</span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase font-mono">Damaged Grains</span>
+                <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block">
+                  {qualityCheck.damaged_grains_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit 4.0%</span>
+              </div>
             </div>
 
-            {record.qualityCheck.notes && (
+            {qualityCheck.remarks && (
               <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-km border border-slate-100 italic">
-                Inspector Notes: "{record.qualityCheck.notes}"
+                Inspector Remarks: "{qualityCheck.remarks}"
               </p>
             )}
           </Card>
         )}
 
-        {/* Weighbridge Measurements */}
-        {record.weighing && (
+        {/* ---------------- ACTION 2: WEIGHBRIDGE MEASUREMENT SUBMISSION ---------------- */}
+        {canPerformWeighing && (
+          <Card className="bg-white border-forest-300 shadow-card p-6 space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Scale className="h-5 w-5 text-forest-800" />
+              <h3 className="text-sm font-bold font-heading text-slate-900">
+                Staff Weighbridge Scale Measurement
+              </h3>
+            </div>
+
+            <form onSubmit={handleWeighingSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Gross Weight (Quintals) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={grossWeight}
+                    onChange={(e) => setGrossWeight(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-km font-mono text-slate-900 focus:ring-2 focus:ring-forest-800"
+                  />
+                  <span className="text-[10px] text-slate-400">Truck + Produce gross weight</span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Tare Weight (Quintals) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={tareWeight}
+                    onChange={(e) => setTareWeight(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-km font-mono text-slate-900 focus:ring-2 focus:ring-forest-800"
+                  />
+                  <span className="text-[10px] text-slate-400">Empty truck tare weight</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-forest-50 border border-forest-200 rounded-km text-xs flex items-center justify-between font-mono">
+                <span>Calculated Net Weight:</span>
+                <span className="font-bold text-forest-900 text-sm">
+                  {Math.max(0, parseFloat(grossWeight || '0') - parseFloat(tareWeight || '0')).toFixed(2)} Quintals
+                </span>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isSubmittingWeighing}
+                disabled={isSubmittingWeighing}
+              >
+                Record Weighbridge & Accept Produce
+              </Button>
+            </form>
+          </Card>
+        )}
+
+        {/* Existing Weighbridge Display */}
+        {rec.gross_weight_quintals !== null && rec.gross_weight_quintals !== undefined && (
           <Card className="bg-white border-slate-200 p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-forest-800" />
                 <h3 className="text-sm font-bold font-heading text-slate-900">
-                  Weighbridge Recorded Measurement (Read-Only)
+                  Recorded Weighbridge Measurement
                 </h3>
               </div>
-              <span className="text-xs font-mono text-slate-500">Weighbridge Scale #2</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-xs">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-km text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">Gross Weight</span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
-                  {record.weighing.grossWeightQuintals} Qtl
+                  {rec.gross_weight_quintals} Qtl
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-km text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">Tare Weight</span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
-                  {record.weighing.tareWeightQuintals} Qtl
+                  {rec.tare_weight_quintals ?? 0} Qtl
                 </span>
               </div>
 
               <div className="p-3 bg-forest-50 border border-forest-200 rounded-km text-center">
-                <span className="text-forest-900 text-[10px] block uppercase font-mono font-bold">Recorded Net Weight</span>
+                <span className="text-forest-900 text-[10px] block uppercase font-mono font-bold">Net Accepted Weight</span>
                 <span className="text-lg font-extrabold text-forest-800 font-mono mt-0.5 block">
-                  {record.weighing.netWeightQuintals} Qtl
+                  {rec.net_weight_quintals ?? 0} Qtl
                 </span>
               </div>
             </div>
@@ -273,17 +624,58 @@ export const StaffProcurementPage: React.FC = () => {
         )}
 
         {/* Rejection Alert */}
-        {record.status === 'REJECTED' && record.rejectionReason && (
-          <Alert type="danger" title="Produce Not Accepted">
-            {record.rejectionReason}
+        {rec.status === 'REJECTED' && (
+          <Alert type="danger" title="Produce Rejected">
+            Crop produce failed government quality thresholds and was rejected.
           </Alert>
         )}
 
         {/* Accepted Banner */}
-        {record.status === 'ACCEPTED' && (
+        {rec.status === 'ACCEPTED' && (
           <Alert type="success" title="Produce Accepted">
-            The crop produce has met government procurement standards and has been approved for entry into Mandi storage.
+            The crop produce has met government procurement standards, passed weighment, and has been accepted for Mandi entry.
           </Alert>
+        )}
+
+        {/* ---------------- ACTION 3: BATCH COMPLETION & PAYMENT DISBURSEMENT ---------------- */}
+        {canComplete && (
+          <Card className="bg-white border-forest-300 shadow-card p-6 space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <CheckCircle2 className="h-5 w-5 text-forest-800" />
+              <h3 className="text-sm font-bold font-heading text-slate-900">
+                Finalize Procurement Batch
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Clicking below will complete this procurement batch, update queue status to completed, and trigger automated payment disbursement record creation.
+            </p>
+
+            <form onSubmit={handleCompleteSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Completion Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Unloaded at Silo Gate 4"
+                  value={completionNotes}
+                  onChange={(e) => setCompletionNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-km text-slate-900 focus:ring-2 focus:ring-forest-800"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isSubmittingComplete}
+                disabled={isSubmittingComplete}
+              >
+                Complete Procurement & Initialize Payment
+              </Button>
+            </form>
+          </Card>
         )}
 
         {/* Compact Payment Summary */}
@@ -292,38 +684,38 @@ export const StaffProcurementPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-forest-800" />
               <h3 className="text-sm font-bold font-heading text-slate-900">
-                Disbursement Status (Read-Only)
+                Disbursement Record
               </h3>
             </div>
-            {paymentRecord && <StatusBadge status={paymentRecord.status} size="sm" />}
+            {payment && <StatusBadge status={payment.status as any} size="sm" />}
           </div>
 
-          {paymentRecord ? (
+          {payment ? (
             <div className="flex items-center justify-between text-xs pt-1">
               <div>
                 <span className="text-slate-500 text-[11px] block">Procurement Value</span>
                 <span className="font-extrabold text-slate-900 text-sm font-mono">
-                  {paymentRecord.amountFormatted}
+                  ₹{payment.amount?.toLocaleString('en-IN') || rec.total_amount?.toLocaleString('en-IN') || 0}
                 </span>
               </div>
 
-              {paymentRecord.dbtReference && (
+              {payment.payment_reference && (
                 <div className="text-right font-mono text-[11px]">
                   <span className="text-slate-400 block">Payment Ref</span>
-                  <span className="font-bold text-slate-900">{paymentRecord.dbtReference}</span>
+                  <span className="font-bold text-slate-900">{payment.payment_reference}</span>
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-xs text-slate-500">Disbursement record will be generated post acceptance.</p>
+            <p className="text-xs text-slate-500">Disbursement record will be generated post batch completion.</p>
           )}
         </Card>
 
         {/* Note */}
         <div className="p-4 bg-slate-100 border border-slate-200 rounded-km text-xs text-slate-500 flex items-center gap-2">
-          <Info className="h-4 w-4 text-slate-400 shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />
           <span>
-            Staff procurement processing displays read-only mock state. Real weighing calculations and backend state transitions are backend-controlled.
+            Staff procurement processing connects to real KisanMarg backend APIs. Quality checks, weighments, and batch completions trigger authoritative state updates.
           </span>
         </div>
       </div>

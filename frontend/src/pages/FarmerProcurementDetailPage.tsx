@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FarmerLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
@@ -7,8 +7,6 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { Badge } from '../components/ui/Badge';
 import { Alert } from '../components/ui/Alert';
 import { StepIndicator } from '../components/ui/StepIndicator';
-import { MOCK_PROCUREMENT_RECORDS, MOCK_PAYMENT_RECORDS } from '../data/mockData';
-import type { ProcurementStatus } from '../types';
 import {
   ArrowLeft,
   Building2,
@@ -18,26 +16,63 @@ import {
   CreditCard,
   ChevronRight,
   ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { procurementApi } from '../services/procurementApi';
+import type { BackendProcurementRecord, ProcurementStatusBackend } from '../services/procurementApi';
+import { ApiError } from '../services/apiClient';
 
 export const FarmerProcurementDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { token } = useAuth();
 
-  const [activeRecordId, setActiveRecordId] = useState<string>(id || 'proc-001');
+  const [record, setRecord] = useState<BackendProcurementRecord | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Find record or fallback
-  const record =
-    MOCK_PROCUREMENT_RECORDS[activeRecordId] ||
-    MOCK_PROCUREMENT_RECORDS['proc-001'];
+  const targetId = id || '';
 
-  const payment = record.paymentId ? MOCK_PAYMENT_RECORDS[record.paymentId] : undefined;
+  const fetchProcurement = useCallback(async () => {
+    if (!targetId || !token) {
+      setIsLoading(false);
+      if (!targetId) setErrorMsg('Procurement ID is missing.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await procurementApi.getProcurementRecord(token, targetId);
+      if (res.success && res.data) {
+        setRecord(res.data);
+      } else {
+        setErrorMsg(res.message || 'Failed to retrieve procurement record.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Procurement record not found or access restricted.');
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('An unexpected error occurred while fetching procurement details.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [targetId, token]);
+
+  useEffect(() => {
+    fetchProcurement();
+  }, [fetchProcurement]);
 
   // Determine active step index for step indicator (0-5)
-  const getStepIndex = (status: ProcurementStatus): number => {
+  const getStepIndex = (status: ProcurementStatusBackend): number => {
     switch (status) {
       case 'BOOKED':
       case 'CHECKED_IN':
@@ -59,7 +94,9 @@ export const FarmerProcurementDetailPage: React.FC = () => {
   };
 
   // Status message mapping
-  const getStatusDescription = (status: ProcurementStatus): { text: string; alertType: 'info' | 'success' | 'danger' | 'warning' } => {
+  const getStatusDescription = (
+    status: ProcurementStatusBackend
+  ): { text: string; alertType: 'info' | 'success' | 'danger' | 'warning' } => {
     switch (status) {
       case 'BOOKED':
         return { text: 'Your procurement booking is confirmed.', alertType: 'info' };
@@ -82,7 +119,53 @@ export const FarmerProcurementDetailPage: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <FarmerLayout activeRole="FARMER">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 text-center">
+          <RefreshCw className="h-6 w-6 text-forest-700 animate-spin mx-auto mb-2" />
+          <p className="text-xs font-mono text-slate-500">Loading procurement record details...</p>
+        </div>
+      </FarmerLayout>
+    );
+  }
+
+  if (errorMsg || !record) {
+    return (
+      <FarmerLayout activeRole="FARMER">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/farmer/dashboard')}
+              className="p-2 -ml-2 text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-bold font-heading text-slate-900">
+              Procurement Record
+            </h1>
+          </div>
+
+          <Alert type="danger" title="Error Loading Record">
+            {errorMsg || 'The requested procurement record could not be found.'}
+          </Alert>
+
+          <Button variant="outline" size="md" onClick={() => navigate('/farmer/dashboard')}>
+            Back to Dashboard
+          </Button>
+        </div>
+      </FarmerLayout>
+    );
+  }
+
   const statusDesc = getStatusDescription(record.status);
+  const cropName = record.crop?.name || 'Crop Produce';
+  const centreName = record.centre?.name || 'Procurement Centre';
+  const bookingRef = record.booking?.booking_reference || `BKG-${record.booking_id?.slice(0, 8)}`;
+  const qualityCheck = record.quality_check;
+  const payment = record.payment;
 
   return (
     <FarmerLayout activeRole="FARMER">
@@ -104,46 +187,18 @@ export const FarmerProcurementDetailPage: React.FC = () => {
                   {t('farmer.procurement.title', 'Crop Procurement Details')}
                 </h1>
                 <Badge variant="forest" size="sm" className="font-mono">
-                  {record.id}
+                  {record.id.slice(0, 8)}
                 </Badge>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5 flex items-center gap-1">
                 <Building2 className="h-3.5 w-3.5 text-slate-400" />
-                {record.centreName}
+                {centreName}
               </p>
             </div>
           </div>
 
-          <StatusBadge status={record.status} size="md" />
+          <StatusBadge status={record.status as any} size="md" />
         </div>
-
-        {/* Demo State Control Bar */}
-        {import.meta.env.DEV && (
-          <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-km text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-subtle">
-            <span className="text-amber-900 font-mono text-[11px] font-bold">
-              [Demo Controls: Switch Procurement Record]
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {Object.keys(MOCK_PROCUREMENT_RECORDS).map((key) => {
-                const rec = MOCK_PROCUREMENT_RECORDS[key];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setActiveRecordId(key)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                      activeRecordId === key
-                        ? 'bg-amber-800 text-white'
-                        : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100'
-                    }`}
-                  >
-                    {rec.id} ({rec.status})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Status Alert Banner */}
         <Alert type={statusDesc.alertType} title={`Status: ${record.status.replace(/_/g, ' ')}`}>
@@ -178,8 +233,9 @@ export const FarmerProcurementDetailPage: React.FC = () => {
 
         {/* 2. Produce & Quantity Summary */}
         <Card className="bg-white border-slate-200 p-5 space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 font-heading border-b border-slate-100 pb-2">
-            Produce Specifications
+          <h3 className="text-sm font-bold text-slate-900 font-heading border-b border-slate-100 pb-2 flex items-center justify-between">
+            <span>Produce Specifications</span>
+            <span className="text-xs font-mono font-normal text-slate-500">Ref: {bookingRef}</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -189,7 +245,12 @@ export const FarmerProcurementDetailPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-500 text-[10px] block uppercase">Produce Crop</span>
-                <span className="font-bold text-slate-900 text-sm">{record.cropName}</span>
+                <span className="font-bold text-slate-900 text-sm">{cropName}</span>
+                {record.crop?.msp_per_quintal && (
+                  <span className="text-[10px] text-slate-500 block font-mono">
+                    MSP Rate: ₹{record.crop.msp_per_quintal}/Qtl
+                  </span>
+                )}
               </div>
             </div>
 
@@ -198,9 +259,11 @@ export const FarmerProcurementDetailPage: React.FC = () => {
                 <Scale className="h-5 w-5" />
               </div>
               <div>
-                <span className="text-slate-500 text-[10px] block uppercase">Requested Quantity</span>
+                <span className="text-slate-500 text-[10px] block uppercase">
+                  {record.net_weight_quintals ? 'Accepted Net Weight' : 'Procurement Quantity'}
+                </span>
                 <span className="font-mono font-bold text-forest-800 text-sm">
-                  {record.estimatedQuantityQuintals} Quintals
+                  {record.net_weight_quintals ?? record.gross_weight_quintals ?? '—'} Quintals
                 </span>
               </div>
             </div>
@@ -208,7 +271,7 @@ export const FarmerProcurementDetailPage: React.FC = () => {
         </Card>
 
         {/* 3. Quality Check Results (If available) */}
-        {record.qualityCheck && (
+        {qualityCheck && (
           <Card className="bg-white border-slate-200 p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-sm font-bold text-slate-900 font-heading flex items-center gap-2">
@@ -216,83 +279,69 @@ export const FarmerProcurementDetailPage: React.FC = () => {
                 Quality Inspection Result
               </h3>
               <Badge
-                variant={
-                  record.qualityCheck.status === 'PASSED'
-                    ? 'forest'
-                    : record.qualityCheck.status === 'FAILED'
-                    ? 'danger'
-                    : 'amber'
-                }
+                variant={qualityCheck.status === 'PASSED' ? 'forest' : 'danger'}
                 size="sm"
               >
-                {record.qualityCheck.status}
+                {qualityCheck.status}
               </Badge>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              {record.qualityCheck.moistureContentPercent !== undefined && (
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase">Moisture Content</span>
-                  <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
-                    {record.qualityCheck.moistureContentPercent}%
-                  </span>
-                  <span className="text-[10px] text-slate-400">Max limit: 12.0%</span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase">Moisture Content</span>
+                <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
+                  {qualityCheck.moisture_content_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit: 14.0%</span>
+              </div>
 
-              {record.qualityCheck.foreignMatterPercent !== undefined && (
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase">Foreign Matter</span>
-                  <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
-                    {record.qualityCheck.foreignMatterPercent}%
-                  </span>
-                  <span className="text-[10px] text-slate-400">Max limit: 1.0%</span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase">Foreign Matter</span>
+                <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
+                  {qualityCheck.foreign_matter_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit: 2.0%</span>
+              </div>
 
-              {record.qualityCheck.gradeAssigned && (
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
-                  <span className="text-slate-500 text-[10px] block uppercase">Assigned Grade</span>
-                  <span className="font-bold text-forest-800 text-sm block mt-0.5">
-                    {record.qualityCheck.gradeAssigned}
-                  </span>
-                </div>
-              )}
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
+                <span className="text-slate-500 text-[10px] block uppercase">Damaged Grains</span>
+                <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
+                  {qualityCheck.damaged_grains_pct}%
+                </span>
+                <span className="text-[10px] text-slate-400">Max limit: 4.0%</span>
+              </div>
             </div>
 
-            {record.qualityCheck.notes && (
+            {qualityCheck.remarks && (
               <p className="text-xs text-slate-600 italic bg-slate-50 p-3 rounded-km border border-slate-100">
-                "{record.qualityCheck.notes}"
+                Remarks: "{qualityCheck.remarks}"
               </p>
             )}
           </Card>
         )}
 
         {/* 4. Weighbridge Results (If available) */}
-        {record.weighing && (
+        {record.gross_weight_quintals !== null && record.gross_weight_quintals !== undefined && (
           <Card className="bg-white border-slate-200 p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-sm font-bold text-slate-900 font-heading flex items-center gap-2">
                 <Scale className="h-4 w-4 text-forest-700" />
                 Weighbridge Measurement
               </h3>
-              {record.weighing.weighedAt && (
-                <span className="text-xs text-slate-400 font-mono">{record.weighing.weighedAt}</span>
-              )}
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-xs text-center font-mono">
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
                 <span className="text-slate-500 text-[10px] block uppercase font-sans">Gross Weight</span>
                 <span className="font-bold text-slate-900 text-sm block mt-0.5">
-                  {record.weighing.grossWeightQuintals} Qtl
+                  {record.gross_weight_quintals} Qtl
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-km">
                 <span className="text-slate-500 text-[10px] block uppercase font-sans">Tare Weight</span>
                 <span className="font-bold text-slate-500 text-sm block mt-0.5">
-                  {record.weighing.tareWeightQuintals} Qtl
+                  {record.tare_weight_quintals ?? 0} Qtl
                 </span>
               </div>
 
@@ -301,7 +350,7 @@ export const FarmerProcurementDetailPage: React.FC = () => {
                   Net Accepted Weight
                 </span>
                 <span className="font-extrabold text-forest-800 text-sm block mt-0.5">
-                  {record.weighing.netWeightQuintals} Qtl
+                  {record.net_weight_quintals ?? 0} Qtl
                 </span>
               </div>
             </div>
@@ -309,11 +358,13 @@ export const FarmerProcurementDetailPage: React.FC = () => {
         )}
 
         {/* 5. Rejection Reason (If rejected) */}
-        {record.status === 'REJECTED' && record.rejectionReason && (
+        {record.status === 'REJECTED' && (
           <Alert type="danger" title="Produce Not Accepted">
             <div className="flex items-start gap-2">
               <XCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-              <span>{record.rejectionReason}</span>
+              <span>
+                Produce quality inspection did not satisfy mandatory government procurement thresholds (Moisture ≤ 14.0%, Foreign Matter ≤ 2.0%, Damaged Grains ≤ 4.0%).
+              </span>
             </div>
           </Alert>
         )}
@@ -328,20 +379,18 @@ export const FarmerProcurementDetailPage: React.FC = () => {
                   Payment Summary
                 </h3>
               </div>
-              <StatusBadge status={payment.status} size="sm" />
+              <StatusBadge status={payment.status as any} size="sm" />
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="space-y-1">
-                <span className="text-slate-500 block text-[11px]">Total Procurement Amount</span>
+                <span className="text-slate-500 block text-[11px]">Total Procurement Value</span>
                 <span className="font-mono font-extrabold text-slate-900 text-lg">
-                  {payment.amountFormatted}
+                  ₹{payment.amount?.toLocaleString('en-IN') || record.total_amount?.toLocaleString('en-IN') || 0}
                 </span>
-                {payment.dbtReference && (
-                  <span className="text-[11px] text-slate-500 font-mono block">
-                    Ref: {payment.dbtReference}
-                  </span>
-                )}
+                <span className="text-[11px] text-slate-500 font-mono block">
+                  Ref: {payment.payment_reference}
+                </span>
               </div>
 
               <Button
