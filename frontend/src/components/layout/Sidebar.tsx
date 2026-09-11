@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { label: 'Operational Dashboard', icon: <LayoutDashboard className="h-4 w-4" />, path: '/staff/dashboard' },
     { label: "Today's Bookings", icon: <CalendarCheck className="h-4 w-4" />, path: '/staff/bookings' },
     { label: 'Queue Operations', icon: <Clock className="h-4 w-4" />, path: '/staff/queue' },
-    { label: 'Procurement Processing', icon: <Scale className="h-4 w-4" />, path: '/staff/procurement/proc-001' },
+    { label: 'Procurement Processing', icon: <Scale className="h-4 w-4" />, path: '/staff/queue' },
   ];
 
   const adminLinks: SidebarLink[] = [

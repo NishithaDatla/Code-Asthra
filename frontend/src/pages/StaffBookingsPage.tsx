@@ -144,13 +144,10 @@ export const StaffBookingsPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              navigate(
-                                b.procurementId
-                                  ? `/staff/procurement/${b.procurementId}`
-                                  : '/staff/procurement/proc-001'
-                              )
-                            }
+                            onClick={() => {
+                              const targetId = (b as any).procurement_id || b.id;
+                              navigate(`/staff/procurement/${targetId}`);
+                            }}
                             className="text-xs text-forest-800"
                           >
                             Procurement Desk

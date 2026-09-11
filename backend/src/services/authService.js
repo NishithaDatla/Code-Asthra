@@ -184,6 +184,32 @@ export async function getCurrentUser(authUserId) {
   };
 }
 
+const DEFAULT_DEMO_PHONES = [
+  '9121901011',
+  '8309790577',
+  '7075643992',
+  '6281983364',
+  '8309402670'
+];
+
+function isDemoFarmerPhone(rawPhone) {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+  const envPhones = process.env.DEMO_FARMER_PHONES
+    ? process.env.DEMO_FARMER_PHONES.split(',').map(p => p.trim())
+    : [];
+  const allowed = [...DEFAULT_DEMO_PHONES, ...envPhones];
+  const cleaned = rawPhone.trim().replace(/[\s\-\(\)]/g, '');
+  const plain10 = cleaned.replace(/^\+91/, '');
+
+  return allowed.some(p => {
+    const pClean = p.trim().replace(/[\s\-\(\)]/g, '');
+    const pPlain10 = pClean.replace(/^\+91/, '');
+    return plain10 === pPlain10 || cleaned === pClean;
+  });
+}
+
 export async function sendFarmerOtp({ phone }) {
   const normalizedPhone = normalizePhone(phone);
 
@@ -207,15 +233,77 @@ export async function verifyFarmerOtp({ phone, otp }) {
   const normalizedPhone = normalizePhone(phone);
   const plainPhone10Digits = normalizedPhone.replace(/^\+91/, '');
 
-  // 1. Verify OTP with Supabase Auth
-  const { data: authData, error: authError } = await supabaseAnon.auth.verifyOtp({
-    phone: normalizedPhone,
-    token: otp,
-    type: 'sms'
-  });
+  let authData = null;
 
-  if (authError || !authData?.user) {
-    throw new Error('Invalid or expired OTP.');
+  // SIH DEMO FALLBACK: Dev/Demo mode, fixed OTP 250321, strictly for explicitly configured demo numbers
+  const isDevOrDemo = process.env.NODE_ENV !== 'production';
+  const isDemoOtp = otp === '250321';
+  const isDemoPhone = isDemoFarmerPhone(phone);
+
+  if (isDevOrDemo && isDemoOtp && isDemoPhone) {
+    // 1. Fetch or provision demo user
+    let { data: existingUser } = await supabase
+      .from('users')
+      .select('*')
+      .or(`phone_number.eq.${normalizedPhone},phone_number.eq.${plainPhone10Digits}`)
+      .maybeSingle();
+
+    if (!existingUser) {
+      try {
+        const demoEmail = `demo_farmer_${plainPhone10Digits}@kisanmarg.gov.in`;
+        const demoPassword = `DemoFarmer@${plainPhone10Digits}`;
+        const demoFullName = `Demo Farmer (${plainPhone10Digits})`;
+        const regRes = await registerUser({
+          email: demoEmail,
+          password: demoPassword,
+          full_name: demoFullName,
+          phone_number: plainPhone10Digits
+        });
+        existingUser = regRes.user;
+      } catch {
+        const { data: retryUser } = await supabase
+          .from('users')
+          .select('*')
+          .or(`phone_number.eq.${normalizedPhone},phone_number.eq.${plainPhone10Digits}`)
+          .maybeSingle();
+        existingUser = retryUser;
+      }
+    }
+
+    if (existingUser) {
+      // 2. Generate a real Supabase Auth session for the demo user
+      const linkRes = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: existingUser.email
+      });
+
+      if (linkRes.data?.properties?.email_otp) {
+        const verifyRes = await supabaseAnon.auth.verifyOtp({
+          email: existingUser.email,
+          token: linkRes.data.properties.email_otp,
+          type: 'email'
+        });
+
+        if (verifyRes.data?.session) {
+          authData = verifyRes.data;
+        }
+      }
+    }
+  }
+
+  // If not handled by SIH DEMO fallback or if fallback failed, use standard Supabase Auth OTP verification
+  if (!authData) {
+    const { data: realAuthData, error: authError } = await supabaseAnon.auth.verifyOtp({
+      phone: normalizedPhone,
+      token: otp,
+      type: 'sms'
+    });
+
+    if (authError || !realAuthData?.user) {
+      throw new Error('Invalid or expired OTP.');
+    }
+
+    authData = realAuthData;
   }
 
   const authUserId = authData.user.id;

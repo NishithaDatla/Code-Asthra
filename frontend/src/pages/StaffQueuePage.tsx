@@ -158,13 +158,12 @@ export const StaffQueuePage: React.FC = () => {
               <Button
                 variant="outline"
                 size="md"
-                onClick={() =>
-                  navigate(
-                    currentServing.procurementId
-                      ? `/staff/procurement/${currentServing.procurementId}`
-                      : '/staff/procurement/proc-001'
-                  )
-                }
+                onClick={() => {
+                  const realId = (currentServing as any).procurement_id || (currentServing as any).booking_id;
+                  if (realId) {
+                    navigate(`/staff/procurement/${realId}`);
+                  }
+                }}
                 className="text-forest-800"
               >
                 Open Procurement Record

@@ -134,7 +134,7 @@ export const StaffDashboardPage: React.FC = () => {
               variant="secondary"
               size="md"
               rightIcon={<ChevronRight className="h-4 w-4" />}
-              onClick={() => navigate('/staff/procurement/proc-001')}
+              onClick={() => navigate('/staff/queue')}
             >
               Open Procurement Record
             </Button>
@@ -201,13 +201,10 @@ export const StaffDashboardPage: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           className="text-xs text-forest-800"
-                          onClick={() =>
-                            navigate(
-                              item.procurementId
-                                ? `/staff/procurement/${item.procurementId}`
-                                : '/staff/queue'
-                            )
-                          }
+                          onClick={() => {
+                            const realId = (item as any).procurement_id || (item as any).booking_id || (item.procurementId && item.procurementId !== 'proc-001' ? item.procurementId : null);
+                            navigate(realId ? `/staff/procurement/${realId}` : '/staff/queue');
+                          }}
                         >
                           Process
                         </Button>
@@ -266,7 +263,7 @@ export const StaffDashboardPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/staff/procurement/proc-001')}
+                  onClick={() => navigate('/staff/queue')}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-km flex items-center justify-between text-left hover:bg-forest-50/50 hover:border-forest-200 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
