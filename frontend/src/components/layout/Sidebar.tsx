@@ -19,6 +19,7 @@ import {
 import { KisanMargLogo } from '../common/KisanMargLogo';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
 
 export interface SidebarProps {
   role?: UserRole;
@@ -41,8 +42,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const currentPath = activePath || location.pathname;
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth/login', { replace: true });
+  };
 
   const farmerLinks: SidebarLink[] = [
     { label: t('nav.dashboard', 'Dashboard'), icon: <LayoutDashboard className="h-4 w-4" />, path: '/farmer/dashboard' },
@@ -119,8 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-1">
         <button
           type="button"
-          // DEVELOPMENT ONLY — Replace with real logout handler during authentication API integration
-          onClick={() => navigate('/')}
+          onClick={handleLogout}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-km text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left"
         >
           <LogOut className="h-4 w-4 text-rose-600" />

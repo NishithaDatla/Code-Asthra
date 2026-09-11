@@ -11,6 +11,8 @@ import { User, CheckCircle2 } from 'lucide-react';
 import { INDIAN_STATES_DISTRICTS } from '../data/indianStatesDistricts';
 import { useLanguage } from '../i18n/LanguageContext';
 import { LanguageSelector } from '../components/common/LanguageSelector';
+import { authApi } from '../services/authApi';
+import { ApiError } from '../services/apiClient';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export const SignupPage: React.FC = () => {
   const [agreed, setAgreed] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // State Options
   const stateOptions = useMemo(() => {
@@ -43,8 +46,10 @@ export const SignupPage: React.FC = () => {
     }));
   }, [selectedState]);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
     if (!fullName.trim() || fullName.trim().length < 2) {
       setError('Please enter a valid full name (minimum 2 characters)');
       return;
@@ -67,14 +72,47 @@ export const SignupPage: React.FC = () => {
     }
 
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const cleanPhone = phone.trim();
+      const payload = {
+        full_name: fullName.trim(),
+        phone_number: cleanPhone,
+        email: `farmer_${cleanPhone}@kisanmarg.gov.in`,
+        password: `KisanMarg@${cleanPhone}`,
+        state: selectedState,
+        district: district,
+      };
+
+      const res = await authApi.register(payload);
+
+      if (res.success) {
+        setSuccessMsg('Account registered successfully! Redirecting to login...');
+        setTimeout(() => {
+          navigate('/auth/login', {
+            state: { phone: cleanPhone, message: 'Account registered successfully. Please verify your mobile number.' },
+          });
+        }, 1200);
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        if (err.message.includes('already exists')) {
+          setError('A user with this mobile number is already registered. Please sign in.');
+        } else {
+          setError(err.message || 'Registration failed');
+        }
+      } else if (err instanceof Error) {
+        setError(err.message || 'Unable to connect to registration server');
+      } else {
+        setError('An unknown error occurred during registration');
+      }
+    } finally {
       setIsLoading(false);
-      // DEVELOPMENT ONLY — Replace with real backend registration API call during integration phase.
-      navigate('/auth/login', {
-        state: { message: 'Registration flow ready — continue with mobile verification.' },
-      });
-    }, 600);
+    }
   };
 
   return (
@@ -90,6 +128,12 @@ export const SignupPage: React.FC = () => {
         {error && (
           <Alert type="danger" onClose={() => setError('')}>
             {error}
+          </Alert>
+        )}
+
+        {successMsg && (
+          <Alert type="success">
+            {successMsg}
           </Alert>
         )}
 

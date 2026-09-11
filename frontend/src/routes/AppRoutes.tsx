@@ -29,6 +29,7 @@ import { AdminAnalyticsPage } from '../pages/AdminAnalyticsPage';
 import { AdminCongestionPage } from '../pages/AdminCongestionPage';
 import { DesignSystemDemoPage } from '../pages/DesignSystemDemoPage';
 import { FarmerLayout, StaffLayout, AdminLayout } from '../layouts/FarmerLayout';
+import { ProtectedRoute, PublicOnlyRoute } from '../components/common/ProtectedRoute';
 import type { UserRole } from '../types';
 
 export const AppRoutes: React.FC = () => {
@@ -61,54 +62,250 @@ export const AppRoutes: React.FC = () => {
       <Routes>
         {/* Root Public Routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/auth/login" element={<LoginPage />} />
-        <Route path="/auth/signup" element={<SignupPage />} />
+        <Route
+          path="/auth/login"
+          element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/auth/signup"
+          element={
+            <PublicOnlyRoute>
+              <SignupPage />
+            </PublicOnlyRoute>
+          }
+        />
 
-        {/* Phase 8C & 8D Farmer Routes */}
-        <Route path="/farmer/dashboard" element={<FarmerDashboardPage />} />
-        <Route path="/farmer/profile" element={<FarmerProfilePage />} />
+        {/* Phase 8C & 8D Farmer Routes (Protected) */}
+        <Route
+          path="/farmer/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/profile"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerProfilePage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8D Procurement Requests Routes */}
-        <Route path="/farmer/request" element={<FarmerRequestsListPage />} />
-        <Route path="/farmer/request/new" element={<FarmerRequestNewPage />} />
-        <Route path="/farmer/request/:id" element={<FarmerRequestDetailPage />} />
+        <Route
+          path="/farmer/request"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerRequestsListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/request/new"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerRequestNewPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/request/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerRequestDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8D Centre Discovery Routes */}
-        <Route path="/farmer/centres" element={<FarmerCentresPage />} />
-        <Route path="/farmer/centres/:id" element={<FarmerCentreDetailPage />} />
-        <Route path="/farmer/centres/:id/availability" element={<FarmerCentreAvailabilityPage />} />
+        <Route
+          path="/farmer/centres"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerCentresPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/centres/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerCentreDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/centres/:id/availability"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerCentreAvailabilityPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8E Smart Scheduling & Booking Routes */}
-        <Route path="/farmer/schedule/:requestId" element={<FarmerSchedulePage />} />
-        <Route path="/farmer/booking/review" element={<FarmerBookingReviewPage />} />
-        <Route path="/farmer/booking/:id" element={<FarmerBookingDetailPage />} />
+        <Route
+          path="/farmer/schedule/:requestId"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerSchedulePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/booking/review"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerBookingReviewPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/booking/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerBookingDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8F Live Queue Routes */}
-        <Route path="/farmer/queue/:bookingId" element={<FarmerQueuePage />} />
+        <Route
+          path="/farmer/queue/:bookingId"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerQueuePage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8G Procurement & Payment Status Routes */}
-        <Route path="/farmer/procurement/:id" element={<FarmerProcurementDetailPage />} />
-        <Route path="/farmer/payment/:id" element={<FarmerPaymentDetailPage />} />
+        <Route
+          path="/farmer/procurement/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerProcurementDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/payment/:id"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerPaymentDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Phase 8H Notifications Route */}
-        <Route path="/farmer/notifications" element={<FarmerNotificationsPage />} />
+        <Route
+          path="/farmer/notifications"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerNotificationsPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Sub-route shortcuts */}
-        <Route path="/farmer/procurement" element={<FarmerCentresPage />} />
-        <Route path="/farmer/payments" element={<FarmerPaymentDetailPage />} />
+        <Route
+          path="/farmer/procurement"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerCentresPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/farmer/payments"
+          element={
+            <ProtectedRoute allowedRoles={['FARMER']}>
+              <FarmerPaymentDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Phase 8I Staff Routes */}
-        <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
-        <Route path="/staff/bookings" element={<StaffBookingsPage />} />
-        <Route path="/staff/queue" element={<StaffQueuePage />} />
-        <Route path="/staff/procurement/:id" element={<StaffProcurementPage />} />
+        {/* Phase 8I Staff Routes (Protected) */}
+        <Route
+          path="/staff/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['STAFF', 'CENTRE_STAFF']}>
+              <StaffDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff/bookings"
+          element={
+            <ProtectedRoute allowedRoles={['STAFF', 'CENTRE_STAFF']}>
+              <StaffBookingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff/queue"
+          element={
+            <ProtectedRoute allowedRoles={['STAFF', 'CENTRE_STAFF']}>
+              <StaffQueuePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff/procurement/:id"
+          element={
+            <ProtectedRoute allowedRoles={['STAFF', 'CENTRE_STAFF']}>
+              <StaffProcurementPage />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Phase 8J System Admin Routes */}
-        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-        <Route path="/admin/centres" element={<AdminCentresPage />} />
-        <Route path="/admin/centres/:id" element={<AdminCentreDetailPage />} />
-        <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
-        <Route path="/admin/congestion" element={<AdminCongestionPage />} />
+        {/* Phase 8J System Admin Routes (Protected) */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'CENTRE_ADMIN']}>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/centres"
+          element={
+            <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'CENTRE_ADMIN']}>
+              <AdminCentresPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/centres/:id"
+          element={
+            <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'CENTRE_ADMIN']}>
+              <AdminCentreDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'CENTRE_ADMIN']}>
+              <AdminAnalyticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/congestion"
+          element={
+            <ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'CENTRE_ADMIN']}>
+              <AdminCongestionPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Development Route for Design System Showcase */}
         <Route

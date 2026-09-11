@@ -12,6 +12,7 @@ import { Dropdown } from '../ui/Dropdown';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { MOCK_NOTIFICATIONS } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
 
 export interface NavbarProps {
   role?: UserRole;
@@ -31,6 +32,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user, logout } = useAuth();
+
+  const activeRole: UserRole = user?.role ? (user.role as UserRole) : role;
+  const displayName = user?.full_name || userName;
+  const displayPhone = user?.phone_number ? `+91 ${user.phone_number.replace(/^\+91/, '')}` : userPhone;
 
   const roleBadges: Record<UserRole, { label: string; variant: 'forest' | 'amber' | 'info' | 'warning' }> = {
     FARMER: { label: 'Farmer Portal', variant: 'forest' },
@@ -39,8 +45,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     SYSTEM_ADMIN: { label: 'System Admin', variant: 'warning' },
   };
 
-  const currentBadge = roleBadges[role];
+  const currentBadge = roleBadges[activeRole] || roleBadges.FARMER;
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth/login', { replace: true });
+  };
 
   return (
     <header className={cn('sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-subtle', className)}>
@@ -66,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center: Quick navigation links for Desktop */}
-        {role === 'FARMER' ? (
+        {activeRole === 'FARMER' ? (
           <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-600">
             <button
               type="button"
@@ -116,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right: Notifications, Language Selector, User Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Selector for Farmers */}
-          {role === 'FARMER' && <LanguageSelector />}
+          {activeRole === 'FARMER' && <LanguageSelector />}
 
           <div className="relative">
             <IconButton
@@ -138,10 +149,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Dropdown
             trigger={
               <button className="flex items-center gap-2.5 p-1 rounded-km hover:bg-slate-100 transition-colors text-left focus:outline-none">
-                <Avatar name={userName} roleBadge={role} size="md" />
+                <Avatar name={displayName} roleBadge={activeRole} size="md" />
                 <div className="hidden sm:flex flex-col">
-                  <span className="text-xs font-bold text-slate-900 leading-tight">{userName}</span>
-                  <span className="text-[11px] text-slate-500 font-mono">{userPhone}</span>
+                  <span className="text-xs font-bold text-slate-900 leading-tight">{displayName}</span>
+                  <span className="text-[11px] text-slate-500 font-mono">{displayPhone}</span>
                 </div>
               </button>
             }
@@ -152,8 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 label: 'Logout',
                 danger: true,
                 icon: <LogOut className="h-3.5 w-3.5" />,
-                // DEVELOPMENT ONLY — Replace with real logout handler during authentication API integration
-                onClick: () => navigate('/'),
+                onClick: handleLogout,
               },
             ]}
           />

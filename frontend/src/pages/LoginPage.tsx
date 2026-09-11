@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { PhoneInput } from '../components/ui/PhoneInput';
 import { OTPInput } from '../components/ui/OTPInput';
@@ -7,11 +7,16 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { Send, Clock, CheckCircle2, ArrowLeft, User, Building2, ShieldCheck, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { authApi } from '../services/authApi';
+import { ApiError } from '../services/apiClient';
 
 type SelectedRole = 'FARMER' | 'CENTRE_STAFF' | 'SYSTEM_ADMIN';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { loginWithAuthData } = useAuth();
   const [activeRole, setActiveRole] = useState<SelectedRole>('FARMER');
 
   // Farmer OTP States
@@ -27,6 +32,13 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Handle incoming location state (e.g. from signup page)
+  useEffect(() => {
+    const stateData = location.state as { phone?: string; message?: string } | null;
+    if (stateData?.phone) setPhone(stateData.phone);
+    if (stateData?.message) setSuccessMsg(stateData.message);
+  }, [location.state]);
 
   // OTP Countdown Effect
   useEffect(() => {
@@ -53,66 +65,148 @@ export const LoginPage: React.FC = () => {
   };
 
   // Farmer Send OTP Handler
-  const handleSendFarmerOtp = () => {
+  const handleSendFarmerOtp = async () => {
     if (phone.length !== 10) {
       setError('Please enter a valid 10-digit mobile number');
       return;
     }
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await authApi.sendOtp(phone);
+      if (res.success) {
+        setOtpSent(true);
+        setOtpCountdown(30);
+        setSuccessMsg(res.message || `OTP sent to +91 ${phone}`);
+      } else {
+        setError('Failed to send OTP. Please try again.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Failed to send OTP');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Network error while sending OTP');
+      } else {
+        setError('An error occurred while requesting OTP');
+      }
+    } finally {
       setIsLoading(false);
-      setOtpSent(true);
-      setOtpCountdown(30);
-      setSuccessMsg(`OTP sent to +91 ${phone}`);
-    }, 600);
+    }
   };
 
   // Farmer OTP Verification & Navigation
-  const handleVerifyFarmerOtp = () => {
+  const handleVerifyFarmerOtp = async () => {
     if (otp.length !== 6) {
       setError('Please enter complete 6-digit OTP code');
       return;
     }
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await authApi.verifyOtp(phone, otp);
+      if (res.success && res.data?.session) {
+        const { session, user, farmer } = res.data;
+        if (user.role !== 'FARMER') {
+          setError('Forbidden. Mobile OTP authentication is only allowed for farmer accounts.');
+          setIsLoading(false);
+          return;
+        }
+        loginWithAuthData(session, user, farmer);
+        navigate('/farmer/dashboard', { replace: true });
+      } else {
+        setError('OTP verification failed.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'OTP verification failed');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Network error during verification');
+      } else {
+        setError('An error occurred during verification');
+      }
+    } finally {
       setIsLoading(false);
-      // DEVELOPMENT ONLY — Replace with real authenticated navigation during API integration.
-      navigate('/farmer/dashboard');
-    }, 600);
+    }
   };
 
   // Staff Sign In Handler & Navigation
-  const handleStaffSignIn = (e: React.FormEvent) => {
+  const handleStaffSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please enter both staff email and password');
       return;
     }
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await authApi.login({ email, password });
+      if (res.success && res.data?.session) {
+        const { session, user, farmer } = res.data;
+        if (user.role !== 'STAFF' && user.role !== 'CENTRE_STAFF') {
+          setError('Unauthorized. Staff login requires a staff account.');
+          setIsLoading(false);
+          return;
+        }
+        loginWithAuthData(session, user, farmer);
+        navigate('/staff/dashboard', { replace: true });
+      } else {
+        setError('Login failed. Invalid credentials.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Invalid email or password.');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Network error during sign in');
+      } else {
+        setError('An error occurred during sign in');
+      }
+    } finally {
       setIsLoading(false);
-      // DEVELOPMENT ONLY — Replace with real authenticated navigation during API integration.
-      navigate('/staff/dashboard');
-    }, 600);
+    }
   };
 
   // Admin Sign In Handler & Navigation
-  const handleAdminSignIn = (e: React.FormEvent) => {
+  const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please enter both admin email and password');
       return;
     }
     setError('');
+    setSuccessMsg('');
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await authApi.login({ email, password });
+      if (res.success && res.data?.session) {
+        const { session, user, farmer } = res.data;
+        if (user.role !== 'SYSTEM_ADMIN' && user.role !== 'CENTRE_ADMIN') {
+          setError('Unauthorized. Admin login requires an admin account.');
+          setIsLoading(false);
+          return;
+        }
+        loginWithAuthData(session, user, farmer);
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        setError('Login failed. Invalid credentials.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Invalid email or password.');
+      } else if (err instanceof Error) {
+        setError(err.message || 'Network error during sign in');
+      } else {
+        setError('An error occurred during sign in');
+      }
+    } finally {
       setIsLoading(false);
-      // DEVELOPMENT ONLY — Replace with real authenticated navigation during API integration.
-      navigate('/admin/dashboard');
-    }, 600);
+    }
   };
 
   const getTitleAndSubtitle = () => {
