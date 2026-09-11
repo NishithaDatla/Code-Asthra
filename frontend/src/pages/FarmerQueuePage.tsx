@@ -1,60 +1,151 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { FarmerLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Alert } from '../components/ui/Alert';
-import { MOCK_BOOKINGS, MOCK_QUEUE_ENTRIES } from '../data/mockData';
-import type { QueueStatus } from '../types';
 import {
   ArrowLeft,
   Building2,
   BellRing,
   QrCode,
   ArrowRight,
+  RefreshCw,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { queueApi } from '../services/queueApi';
+import type { BackendQueueEntry } from '../services/queueApi';
+import { ApiError } from '../services/apiClient';
 
 export const FarmerQueuePage: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { token } = useAuth();
 
   const locationState = location.state as {
     bookingNumber?: string;
     centreName?: string;
     cropType?: string;
     quantityQuintals?: number;
-    slotDate?: string;
-    slotTime?: string;
     autoCheckIn?: boolean;
   } | null;
 
-  // Fallback to mock booking / mock queue entry
-  const defaultBooking = MOCK_BOOKINGS.find((b) => b.id === bookingId) || MOCK_BOOKINGS[0];
-  const existingQueueEntry = MOCK_QUEUE_ENTRIES[bookingId || 'bkg-101'];
+  const [queueEntry, setQueueEntry] = useState<BackendQueueEntry | null>(null);
+  const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const [isCheckedIn, setIsCheckedIn] = useState<boolean>(
-    locationState?.autoCheckIn || !!existingQueueEntry
-  );
-  const [currentStatus, setCurrentStatus] = useState<QueueStatus>(
-    existingQueueEntry?.status || 'WAITING'
-  );
-  const [tokenNumber] = useState<string>(existingQueueEntry?.tokenNumber || 'Q-104');
-  const [farmersAhead] = useState<number>(existingQueueEntry?.farmersAhead ?? 5);
-  const [estimatedWait] = useState<number>(existingQueueEntry?.estimatedWaitMinutes ?? 25);
-  const [serviceCounter] = useState<number>(existingQueueEntry?.serviceCounter ?? 2);
+  const targetBookingId = bookingId || '';
 
-  const centreName = locationState?.centreName || defaultBooking.centreName;
-  const cropType = locationState?.cropType || defaultBooking.cropType;
-  const quantityQuintals = locationState?.quantityQuintals || Math.round(defaultBooking.quantityKg / 100);
+  // 1. Fetch live queue status for booking ID
+  const fetchQueueStatus = useCallback(async () => {
+    if (!targetBookingId || !token) {
+      setIsLoading(false);
+      return;
+    }
 
-  const handleCheckIn = () => {
-    setIsCheckedIn(true);
-    setCurrentStatus('WAITING');
+    try {
+      const res = await queueApi.getQueueStatus(token, targetBookingId);
+      if (res.success && res.data) {
+        setQueueEntry(res.data);
+        setIsCheckedIn(true);
+        setErrorMsg('');
+      }
+    } catch {
+      // If 404 or not checked in yet, leave isCheckedIn false
+    } finally {
+      setIsLoading(false);
+    }
+  }, [targetBookingId, token]);
+
+  useEffect(() => {
+    fetchQueueStatus();
+  }, [fetchQueueStatus]);
+
+  // 2. Authoritative live queue status polling (every 10 seconds while checked in)
+  useEffect(() => {
+    if (!isCheckedIn || !token || !targetBookingId) return;
+
+    // Do not poll if queue entry is already COMPLETED or SKIPPED
+    if (queueEntry?.status === 'COMPLETED' || queueEntry?.status === 'SKIPPED') {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      fetchQueueStatus();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isCheckedIn, token, targetBookingId, queueEntry?.status, fetchQueueStatus]);
+
+  // 3. Handle Gate Arrival Check-In
+  const handleCheckIn = async () => {
+    if (!token || !targetBookingId) {
+      setErrorMsg('Authentication or booking ID missing.');
+      return;
+    }
+
+    setErrorMsg('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await queueApi.checkIn(token, targetBookingId);
+      if (res.success && res.data) {
+        setQueueEntry(res.data);
+        setIsCheckedIn(true);
+      } else {
+        setErrorMsg(res.message || 'Check-in failed.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        // If already checked in according to backend, try fetching current queue status
+        if (err.message.includes('already checked in') || err.message.includes('already has an active queue entry')) {
+          await fetchQueueStatus();
+        } else {
+          setErrorMsg(err.message || 'Gate check-in failed.');
+        }
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('An unexpected error occurred during gate check-in.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // Derived Display Values
+  const bookingNumber =
+    queueEntry?.booking?.booking_number ||
+    locationState?.bookingNumber ||
+    (targetBookingId ? `BKG-${targetBookingId.slice(0, 8)}` : 'BKG-CONFIRMED');
+
+  const centreName =
+    queueEntry?.centre?.name ||
+    locationState?.centreName ||
+    'Karnal Procurement Centre';
+
+  const cropType =
+    queueEntry?.booking?.procurement_requests?.crops?.name ||
+    locationState?.cropType ||
+    'Crop Produce';
+
+  const quantityQuintals =
+    queueEntry?.booking?.procurement_requests?.estimated_quantity_quintals ||
+    locationState?.quantityQuintals ||
+    150;
+
+  const tokenNumber = queueEntry?.token_number || 'A-101';
+  const currentStatus = queueEntry?.status || 'WAITING';
+  const position = queueEntry?.position ?? queueEntry?.queue_position?.position ?? 1;
+  const farmersAhead = queueEntry?.queue_position?.peopleAhead ?? Math.max(0, position - 1);
+  const estimatedWait = queueEntry?.estimated_wait_time_minutes ?? queueEntry?.eta?.estimatedWaitTimeMinutes ?? 15;
+  const serviceCounter = queueEntry?.counter?.counter_number || 1;
 
   return (
     <FarmerLayout activeRole="FARMER">
@@ -73,7 +164,7 @@ export const FarmerQueuePage: React.FC = () => {
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
                 {isCheckedIn
-                  ? t('farmer.queue.yourToken')
+                  ? t('farmer.queue.yourToken', 'Your Live Queue Token')
                   : 'Centre Arrival Check-In'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
@@ -84,11 +175,21 @@ export const FarmerQueuePage: React.FC = () => {
             </div>
           </div>
 
-          <StatusBadge status={isCheckedIn ? currentStatus : 'CONFIRMED'} size="md" />
+          <StatusBadge status={isCheckedIn ? (currentStatus as any) : 'CONFIRMED'} size="md" />
         </div>
 
-        {/* ----------------- STATE 1: CHECK-IN SCREEN ----------------- */}
-        {!isCheckedIn ? (
+        {errorMsg && (
+          <Alert type="danger" onClose={() => setErrorMsg('')}>
+            {errorMsg}
+          </Alert>
+        )}
+
+        {isLoading ? (
+          <div className="py-12 text-center text-xs font-mono text-slate-500 animate-pulse">
+            Loading queue status...
+          </div>
+        ) : !isCheckedIn ? (
+          /* ----------------- STATE 1: CHECK-IN SCREEN ----------------- */
           <Card className="bg-white border-slate-200 p-6 sm:p-8 space-y-6">
             <div className="text-center space-y-3">
               <div className="w-16 h-16 rounded-full bg-forest-50 border border-forest-200 flex items-center justify-center text-forest-800 mx-auto shadow-subtle">
@@ -98,7 +199,7 @@ export const FarmerQueuePage: React.FC = () => {
                 Arrived at {centreName}?
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                Click Check In when you arrive at the gate to get your queue token and enter the weighbridge queue.
+                Click Check In when you arrive at the gate to get your live queue token and enter the weighbridge sequence.
               </p>
             </div>
 
@@ -106,7 +207,7 @@ export const FarmerQueuePage: React.FC = () => {
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-km text-xs space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500">Booking Ref:</span>
-                <span className="font-mono font-bold text-slate-900">{defaultBooking.bookingNumber}</span>
+                <span className="font-mono font-bold text-slate-900">{bookingNumber}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-slate-700">
@@ -125,6 +226,8 @@ export const FarmerQueuePage: React.FC = () => {
               variant="primary"
               size="lg"
               fullWidth
+              isLoading={isSubmitting}
+              disabled={isSubmitting}
               rightIcon={<ArrowRight className="h-4 w-4" />}
               onClick={handleCheckIn}
             >
@@ -134,30 +237,19 @@ export const FarmerQueuePage: React.FC = () => {
         ) : (
           /* ----------------- STATE 2: LIVE QUEUE STATUS ----------------- */
           <div className="space-y-6">
-            {/* Development-Only Demo Controls */}
-            {import.meta.env.DEV && (
-              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-km text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow-subtle">
-                <span className="text-amber-900 font-mono text-[11px] font-bold">
-                  [Demo Controls — Development Only]
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(['WAITING', 'CALLED', 'IN_SERVICE', 'COMPLETED', 'SKIPPED'] as QueueStatus[]).map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => setCurrentStatus(st)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                        currentStatus === st
-                          ? 'bg-amber-800 text-white'
-                          : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Live Refresh Status Bar */}
+            <div className="flex items-center justify-between text-xs text-slate-500 font-mono px-1">
+              <span className="flex items-center gap-1.5 text-forest-800 font-bold">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Live Authoritative Refresh Active
+              </span>
+              <button
+                type="button"
+                onClick={fetchQueueStatus}
+                className="hover:underline text-slate-600"
+              >
+                Refresh Now
+              </button>
+            </div>
 
             {/* QUEUE TOKEN HIGH-VISIBILITY CARD */}
             <Card className="bg-white border-forest-200 shadow-card text-center p-6 sm:p-8 space-y-4 relative overflow-hidden">
@@ -172,7 +264,7 @@ export const FarmerQueuePage: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-center gap-2">
-                <StatusBadge status={currentStatus} size="md" />
+                <StatusBadge status={currentStatus as any} size="md" />
               </div>
             </Card>
 
@@ -208,19 +300,19 @@ export const FarmerQueuePage: React.FC = () => {
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-km flex items-center justify-between gap-4">
                   <div>
                     <h4 className="text-xs font-bold text-emerald-900 font-heading">
-                      Procurement Processing Active
+                      Procurement Record Saved
                     </h4>
                     <p className="text-xs text-emerald-700 mt-0.5">
-                      Check your quality results, weighbridge details, and payment status.
+                      Check your quality results, weighbridge details, and payment settlement.
                     </p>
                   </div>
                   <Button
                     variant="primary"
                     size="sm"
                     rightIcon={<ArrowRight className="h-4 w-4" />}
-                    onClick={() => navigate('/farmer/procurement/proc-001')}
+                    onClick={() => navigate('/farmer/dashboard')}
                   >
-                    View Procurement
+                    View Dashboard
                   </Button>
                 </div>
               </div>
@@ -228,7 +320,7 @@ export const FarmerQueuePage: React.FC = () => {
 
             {currentStatus === 'SKIPPED' && (
               <Alert type="danger" title="Queue Status Skipped">
-                Your queue status is no longer active.
+                Your queue status was marked skipped by centre staff. Please contact the Mandi helpdesk.
               </Alert>
             )}
 
@@ -236,16 +328,16 @@ export const FarmerQueuePage: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">
-                  {t('farmer.queue.position')}
+                  {t('farmer.queue.position', 'Position')}
                 </span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
-                  #{currentStatus === 'CALLED' ? 1 : existingQueueEntry?.position || 6}
+                  #{currentStatus === 'CALLED' ? 1 : position}
                 </span>
               </div>
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">
-                  {t('farmer.queue.farmersAhead')}
+                  {t('farmer.queue.farmersAhead', 'Farmers Ahead')}
                 </span>
                 <span className="text-lg font-bold text-slate-900 font-mono mt-0.5 block">
                   {currentStatus === 'CALLED' ? 0 : farmersAhead}
@@ -254,7 +346,7 @@ export const FarmerQueuePage: React.FC = () => {
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">
-                  {t('farmer.queue.approxWait')}
+                  {t('farmer.queue.approxWait', 'Approx. Wait')}
                 </span>
                 <span className="text-lg font-bold text-forest-800 font-mono mt-0.5 block">
                   {currentStatus === 'CALLED' ? '0 min' : `~${estimatedWait} min`}
@@ -263,7 +355,7 @@ export const FarmerQueuePage: React.FC = () => {
 
               <div className="p-3 bg-white border border-slate-200 rounded-km shadow-subtle text-center">
                 <span className="text-slate-500 text-[10px] block uppercase font-mono">
-                  Counter
+                  Assigned Counter
                 </span>
                 <span className="text-lg font-bold text-amber-700 font-mono mt-0.5 block">
                   Counter #{serviceCounter}
@@ -278,7 +370,9 @@ export const FarmerQueuePage: React.FC = () => {
                   <Building2 className="h-4 w-4 text-forest-700" />
                   <span className="font-bold text-slate-900">{centreName}</span>
                 </div>
-                <span className="text-slate-500 font-mono text-[11px]">Checked in: {existingQueueEntry?.checkedInAt || '09:45 AM'}</span>
+                <span className="text-slate-500 font-mono text-[11px]">
+                  Checked in: {queueEntry ? new Date(queueEntry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate Check-In'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between text-slate-600 font-mono text-[11px]">
