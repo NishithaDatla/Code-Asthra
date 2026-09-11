@@ -1,37 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FarmerLayout } from '../layouts/FarmerLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { StatusBadge } from '../components/ui/StatusBadge';
-import { MOCK_CENTRES } from '../data/mockData';
+import { Alert } from '../components/ui/Alert';
 import { Building2, MapPin, Clock, ChevronRight, Search } from 'lucide-react';
-
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { centreApi } from '../services/centreApi';
+import type { BackendCentre } from '../services/centreApi';
+import { ApiError } from '../services/apiClient';
 
 export const FarmerCentresPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { token } = useAuth();
 
+  const [centres, setCentres] = useState<BackendCentre[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Unique districts from mock centres
-  const districts = Array.from(new Set(MOCK_CENTRES.map((c) => c.district)));
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const filteredCentres = MOCK_CENTRES.filter((centre) => {
-    if (selectedDistrict !== 'ALL' && centre.district !== selectedDistrict) return false;
-    if (selectedStatus !== 'ALL' && centre.status !== selectedStatus) return false;
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      const matchName = centre.name.toLowerCase().includes(q);
-      const matchDist = centre.district.toLowerCase().includes(q);
-      if (!matchName && !matchDist) return false;
+  const fetchCentres = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      const filters: { district?: string; status?: 'OPEN' | 'CLOSED' | 'PAUSED' } = {};
+      if (selectedDistrict !== 'ALL') filters.district = selectedDistrict;
+      if (selectedStatus !== 'ALL') filters.status = selectedStatus as any;
+
+      const res = await centreApi.getCentres(token, filters);
+      if (res.success && Array.isArray(res.data)) {
+        setCentres(res.data);
+      } else {
+        setErrorMsg(res.message || 'Failed to retrieve procurement centres.');
+      }
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message || 'Failed to retrieve procurement centres.');
+      } else {
+        setErrorMsg('Unable to connect to KisanMarg server to fetch centres.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-    return true;
-  });
+  }, [token, selectedDistrict, selectedStatus]);
+
+  useEffect(() => {
+    fetchCentres();
+  }, [fetchCentres]);
+
+  // Unique list of districts from live response
+  const districtOptions = useMemo(() => {
+    const set = new Set(centres.map((c) => c.district).filter(Boolean));
+    return Array.from(set).sort();
+  }, [centres]);
+
+  const filteredCentres = useMemo(() => {
+    return centres.filter((centre) => {
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const matchName = centre.name.toLowerCase().includes(q);
+        const matchDist = centre.district.toLowerCase().includes(q);
+        const matchAddr = centre.address_line?.toLowerCase().includes(q) || false;
+        if (!matchName && !matchDist && !matchAddr) return false;
+      }
+      return true;
+    });
+  }, [centres, searchQuery]);
 
   return (
     <FarmerLayout activeRole="FARMER">
@@ -45,6 +87,12 @@ export const FarmerCentresPage: React.FC = () => {
             {t('farmer.centre.subtitle', 'Find nearby government purchasing yards, operating hours, and availability.')}
           </p>
         </div>
+
+        {errorMsg && (
+          <Alert type="danger" onClose={() => setErrorMsg('')}>
+            {errorMsg}
+          </Alert>
+        )}
 
         {/* Filters Card */}
         <Card className="bg-white border-slate-200 p-4">
@@ -72,7 +120,7 @@ export const FarmerCentresPage: React.FC = () => {
                 onChange={(e) => setSelectedDistrict(e.target.value)}
                 options={[
                   { value: 'ALL', label: 'All Districts' },
-                  ...districts.map((d) => ({ value: d, label: d })),
+                  ...districtOptions.map((d) => ({ value: d, label: d })),
                 ]}
               />
             </div>
@@ -95,7 +143,11 @@ export const FarmerCentresPage: React.FC = () => {
         </Card>
 
         {/* Centres List */}
-        {filteredCentres.length > 0 ? (
+        {isLoading ? (
+          <div className="py-12 text-center text-xs font-mono text-slate-500 animate-pulse">
+            Fetching procurement centres from KisanMarg server...
+          </div>
+        ) : filteredCentres.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredCentres.map((centre) => (
               <Card
@@ -115,25 +167,29 @@ export const FarmerCentresPage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <StatusBadge status={centre.status} size="sm" />
+                    <StatusBadge status={centre.status as any} size="sm" />
                   </div>
 
-                  {centre.address && (
+                  {centre.address_line && (
                     <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50 p-2.5 rounded-km border border-slate-100">
-                      {centre.address}
+                      {centre.address_line}
                     </p>
                   )}
 
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 bg-slate-50 border border-slate-100 rounded-km">
-                      <span className="text-slate-500 text-[10px] block uppercase">Congestion</span>
-                      <StatusBadge status={centre.congestion} size="sm" />
+                      <span className="text-slate-500 text-[10px] block uppercase">Daily Capacity</span>
+                      <span className="font-mono font-bold text-forest-800">
+                        {centre.daily_capacity_quintals
+                          ? `${centre.daily_capacity_quintals} Quintals`
+                          : 'Standard'}
+                      </span>
                     </div>
 
                     <div className="p-2 bg-slate-50 border border-slate-100 rounded-km">
                       <span className="text-slate-500 text-[10px] block uppercase">Total Counters</span>
                       <span className="font-mono font-bold text-slate-900">
-                        {centre.totalCounters || 4} Counters
+                        {centre.total_counters || 2} Counters
                       </span>
                     </div>
                   </div>
@@ -142,7 +198,7 @@ export const FarmerCentresPage: React.FC = () => {
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
                     <Clock className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{centre.operatingHours || '08:00 AM - 05:00 PM'}</span>
+                    <span>08:00 AM - 05:00 PM</span>
                   </div>
 
                   <Button
